@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(0.985 0.003 250);
+  --foreground: oklch(0.22 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.02 260);
+  --muted: oklch(0.955 0.005 250);
+  --muted-foreground: oklch(0.52 0.02 260);
+  --border: oklch(0.91 0.008 250);
+  --primary: oklch(0.55 0.18 262);
+  --primary-foreground: oklch(0.99 0 0);
+  --accent: oklch(0.94 0.03 262);
+  --destructive: oklch(0.58 0.21 27);
+  --success: oklch(0.6 0.15 155);
+  --warning: oklch(0.75 0.15 80);
+  --ring: oklch(0.55 0.18 262 / 40%);
+}
+
+.dark {
+  --background: oklch(0.17 0.015 260);
+  --foreground: oklch(0.93 0.005 250);
+  --card: oklch(0.21 0.015 260);
+  --card-foreground: oklch(0.93 0.005 250);
+  --muted: oklch(0.26 0.015 260);
+  --muted-foreground: oklch(0.68 0.015 255);
+  --border: oklch(0.3 0.015 260);
+  --primary: oklch(0.65 0.16 262);
+  --primary-foreground: oklch(0.15 0.02 260);
+  --accent: oklch(0.3 0.05 262);
+  --destructive: oklch(0.65 0.19 27);
+  --success: oklch(0.68 0.14 155);
+  --warning: oklch(0.8 0.14 80);
+  --ring: oklch(0.65 0.16 262 / 40%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-ring: var(--ring);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--accent);
+}

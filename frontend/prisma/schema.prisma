@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Kimlik ──────────────────────────────────────────────
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         String       @default("USER")
+  createdAt    DateTime     @default(now())
+  projectLogs  ProjectLog[]
+}
+
+// ── Ortak ───────────────────────────────────────────────
+
+model Factory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  location String?
+  projects Project[]
+  licenses License[]
+}
+
+model TeamMember {
+  id          String       @id @default(cuid())
+  name        String
+  title       String?
+  active      Boolean      @default(true)
+  assignments Assignment[]
+}
+
+// ── Modül 1: Proje ve Kaynak Yönetimi ──────────────────
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  factoryId    String
+  factory      Factory       @relation(fields: [factoryId], references: [id])
+  probability  Int           @default(50) // gerçekleşme ihtimali (%)
+  targetBudget Decimal       @default(0) @db.Decimal(14, 2)
+  startDate    DateTime?
+  endDate      DateTime?
+  riskLevel    RiskLevel     @default(MEDIUM)
+  priority     Priority      @default(MEDIUM)
+  status       ProjectStatus @default(PLANNED)
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  logs        ProjectLog[]
+  assignments Assignment[]
+  budgetItems BudgetItem[]
+  financials  MonthlyFinancial[]
+  invoices    Invoice[]
+}
+
+// Tarihsel değişiklik logu
+model ProjectLog {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+// Aylık bazda adam-gün planı ve gerçekleşen
+model Assignment {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      TeamMember @relation(fields: [memberId], references: [id])
+  year        Int
+  month       Int // 1-12
+  plannedDays Decimal    @default(0) @db.Decimal(6, 2)
+  actualDays  Decimal    @default(0) @db.Decimal(6, 2)
+  resources   String? // kullanılacak kaynaklar
+
+  @@unique([projectId, memberId, year, month])
+  @@index([year, month])
+}
+
+// ── Modül 2: Bütçe ve Finansal Yönetim ─────────────────
+
+// Kalemlerin girildiği para birimi. TL'ye çevrim TCMB kuru ile yapılır.
+enum Currency {
+  TRY
+  USD
+  EUR
+  GBP
+}
+
+// Kırılımlı bütçe / teklif kalemleri
+model BudgetItem {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category    String // örn. Donanım, Yazılım, İşçilik
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal  @default(0) @db.Decimal(14, 2)
+  amount      Decimal  @default(0) @db.Decimal(14, 2)
+  currency    Currency @default(TRY)
+}
+
+// Aylık gelir / gider / iç kaynak geliri gridi
+// Kural: gelir her zaman giderin %5 fazlasıdır (income = expense * 1.05).
+model MonthlyFinancial {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  year           Int
+  month          Int // 1-12
+  income         Decimal  @default(0) @db.Decimal(14, 2)
+  expense        Decimal  @default(0) @db.Decimal(14, 2)
+  internalIncome Decimal  @default(0) @db.Decimal(14, 2)
+  currency       Currency @default(TRY)
+
+  @@unique([projectId, year, month])
+  @@index([year])
+}
+
+enum InvoiceStatus {
+  PLANNED
+  ISSUED
+  PAID
+  OVERDUE
+}
+
+// Faturalama takvimi
+model Invoice {
+  id          String        @id @default(cuid())
+  projectId   String
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal       @default(0) @db.Decimal(14, 2)
+  currency    Currency      @default(TRY)
+  issueDate   DateTime
+  status      InvoiceStatus @default(PLANNED)
+
+  @@index([issueDate])
+}
+
+// ── Modül 3: Lisans ve Key Yönetimi ────────────────────
+
+enum PaymentPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONE_TIME
+}
+
+enum LicenseStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+}
+
+model Application {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  vendor   String?
+  licenses License[]
+}
+
+model License {
+  id               String        @id @default(cuid())
+  applicationId    String
+  application      Application   @relation(fields: [applicationId], references: [id])
+  factoryId        String
+  factory          Factory       @relation(fields: [factoryId], references: [id])
+  licenseKey       String
+  description      String?
+  totalInvestment  Decimal       @default(0) @db.Decimal(14, 2) // toplam yatırım bedeli
+  isSubscription   Boolean       @default(false)
+  subscriptionCost Decimal       @default(0) @db.Decimal(14, 2)
+  currency         Currency      @default(TRY)
+  paymentPeriod    PaymentPeriod @default(ONE_TIME)
+  renewalDate      DateTime?
+  status           LicenseStatus @default(ACTIVE)
+  createdAt        DateTime      @default(now())
+}
