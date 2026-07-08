@@ -57,7 +57,7 @@ export function Sidebar() {
         </div>
         <div>
           <div className="text-sm font-bold leading-tight">Endüstri 4.0 Yönetim Portalı</div>
-          <div className="text-xs text-muted-foreground">DBD Ekibi PO Yönetimi</div>
+          <div className="text-xs text-muted-foreground">DBD Ekibi Yönetim Portalı</div>
         </div>
       </div>
 
