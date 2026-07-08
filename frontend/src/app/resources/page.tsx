@@ -11,12 +11,13 @@ export default async function ResourcesPage() {
       orderBy: [{ year: "asc" }, { month: "asc" }],
     }),
     prisma.teamMember.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.project.findMany({ select: { id: true, name: true } }),
+    prisma.project.findMany({ select: { id: true, name: true, projectCode: true } }),
   ]);
 
   const dtos: (AssignmentDTO & { projectName: string })[] = assignments.map((a) => ({
     id: a.id,
     projectId: a.projectId,
+    projectCode: a.project.projectCode,
     projectName: a.project.name,
     memberId: a.memberId,
     memberName: a.member.name,

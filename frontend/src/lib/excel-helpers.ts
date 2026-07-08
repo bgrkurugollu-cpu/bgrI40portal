@@ -60,7 +60,8 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
   },
   projects: {
     headers: [
-      "Proje Adı",
+      "Proje Kodu",
+      "Proje İsmi",
       "Fabrika",
       "İhtimal(%)",
       "Hedef Bütçe",
@@ -73,6 +74,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
     ],
     examples: [
       [
+        "PRJ-101",
         "MES Entegrasyonu",
         "Gebze Fabrikası",
         90,
@@ -85,6 +87,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
         "MES kurulumu ve ERP entegrasyonu",
       ],
       [
+        "PRJ-102",
         "Enerji İzleme",
         "İzmir Fabrikası",
         70,
@@ -102,6 +105,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
   },
   assignments: {
     headers: [
+      "Proje Kodu",
       "Proje",
       "Ekip Üyesi",
       "Yıl",
@@ -111,13 +115,14 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       "Kaynaklar",
     ],
     examples: [
-      ["MES Entegrasyonu", "Ahmet Yılmaz", 2026, 1, 15, 12, "Ignition Forum"],
-      ["Enerji İzleme", "Elif Demir", 2026, 2, 5, 0, "Sensör Dökümantasyonu"],
+      ["PRJ-101", "MES Entegrasyonu", "Ahmet Yılmaz", 2026, 1, 15, 12, "Ignition Forum"],
+      ["PRJ-102", "Enerji İzleme", "Elif Demir", 2026, 2, 5, 0, "Sensör Dökümantasyonu"],
     ],
     notes: "Ay: 1-12 arası sayı  |  Günler 0-31 arası sayı olmalıdır",
   },
   budgetItems: {
     headers: [
+      "Proje Kodu",
       "Proje",
       "Kategori",
       "Açıklama",
@@ -126,8 +131,9 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       "Para Birimi",
     ],
     examples: [
-      ["MES Entegrasyonu", "Yazılım", "MES lisansları", 1, 18000, "USD"],
+      ["PRJ-101", "MES Entegrasyonu", "Yazılım", "MES lisansları", 1, 18000, "USD"],
       [
+        "PRJ-101",
         "MES Entegrasyonu",
         "Donanım",
         "Endüstriyel PC ve sunucular",
@@ -140,6 +146,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
   },
   financials: {
     headers: [
+      "Proje Kodu",
       "Proje",
       "Yıl",
       "Ay",
@@ -148,8 +155,8 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       "Para Birimi",
     ],
     examples: [
-      ["MES Entegrasyonu", 2026, 1, 120000, 40000, "TRY"],
-      ["Enerji İzleme", 2026, 5, 4000, 20000, "USD"],
+      ["PRJ-101", "MES Entegrasyonu", 2026, 1, 120000, 40000, "TRY"],
+      ["PRJ-102", "Enerji İzleme", 2026, 5, 4000, 20000, "USD"],
     ],
     notes:
       "Ay: 1-12 arası sayı  |  Para Birimi: TRY / USD / EUR / GBP  |  Gelir otomatik hesaplanır (giderin %5 fazlası)",

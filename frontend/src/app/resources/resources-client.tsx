@@ -227,8 +227,9 @@ export function ResourcesClient({
           <Table>
             <THead>
               <TR>
+                <TH>Proje Kodu</TH>
                 <TH>Proje</TH>
-                <TH>Ekip Üyesi</TH>
+                <TH>Üye</TH>
                 <TH>Dönem</TH>
                 <TH className="text-right">Plan</TH>
                 <TH className="text-right">Gerçekleşen</TH>
@@ -238,6 +239,9 @@ export function ResourcesClient({
             <TBody>
               {filtered.map((a) => (
                 <TR key={a.id}>
+                  <TD className="font-mono text-xs font-bold text-muted-foreground">
+                    {a.projectCode}
+                  </TD>
                   <TD>
                     <Link
                       href={`/projects/${a.projectId}`}
@@ -257,8 +261,8 @@ export function ResourcesClient({
               ))}
               {filtered.length === 0 && (
                 <TR>
-                  <TD colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Bu yıl için atama bulunamadı.
+                  <TD colSpan={7} className="py-8 text-center text-muted-foreground">
+                    Seçili ay için kayıt yok
                   </TD>
                 </TR>
               )}

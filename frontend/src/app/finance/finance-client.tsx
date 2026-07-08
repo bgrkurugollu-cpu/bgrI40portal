@@ -91,10 +91,10 @@ export function FinanceClient({
   );
 
   const pivot = useMemo(() => {
-    const byProject = new Map<string, { name: string; months: FinRow[] }>();
+    const byProject = new Map<string, { code?: string; name: string; months: FinRow[] }>();
     filtered.forEach((f) => {
       if (!byProject.has(f.projectId))
-        byProject.set(f.projectId, { name: f.projectName, months: [] });
+        byProject.set(f.projectId, { code: f.projectCode, name: f.projectName, months: [] });
       byProject.get(f.projectId)!.months.push(f);
     });
     return byProject;
@@ -219,7 +219,8 @@ export function FinanceClient({
           <Table className="min-w-[1200px]">
             <THead>
               <TR>
-                <TH className="w-[140px] max-w-[160px]">Proje</TH>
+                <TH className="w-[100px]">Proje Kodu</TH>
+                <TH className="w-[140px] max-w-[160px]">Proje İsmi</TH>
                 <TH className="w-[80px]">Kalem</TH>
                 {MONTHS_TR_SHORT.map((m) => (
                   <TH key={m} className="text-right min-w-[90px]">
@@ -230,7 +231,7 @@ export function FinanceClient({
               </TR>
             </THead>
             <TBody>
-              {Array.from(pivot.entries()).flatMap(([pid, { name, months }]) => {
+              {Array.from(pivot.entries()).flatMap(([pid, { code, name, months }]) => {
                 const rowFor = (
                   key: "incomeTRY" | "expenseTRY" | "internalIncomeTRY",
                   label: string
@@ -241,11 +242,16 @@ export function FinanceClient({
                   return (
                     <TR key={`${pid}-${key}`}>
                       {key === "incomeTRY" && (
-                        <TD rowSpan={3} className="align-top font-medium w-[140px] max-w-[160px] truncate" title={name}>
-                          <Link href={`/projects/${pid}`} className="text-primary hover:underline">
-                            {name}
-                          </Link>
-                        </TD>
+                        <>
+                          <TD rowSpan={3} className="align-top font-mono text-xs font-bold text-muted-foreground w-[100px] truncate">
+                            {code}
+                          </TD>
+                          <TD rowSpan={3} className="align-top font-medium w-[140px] max-w-[160px] truncate" title={name}>
+                            <Link href={`/projects/${pid}`} className="text-primary hover:underline">
+                              {name}
+                            </Link>
+                          </TD>
+                        </>
                       )}
                       <TD className="text-muted-foreground">{label}</TD>
                       {vals.map((v, i) => (
@@ -287,7 +293,8 @@ export function FinanceClient({
             <THead>
               <TR>
                 <TH>Tarih</TH>
-                <TH>Proje</TH>
+                <TH>Proje Kodu</TH>
+                <TH>Proje İsmi</TH>
                 <TH>Açıklama</TH>
                 <TH className="text-right">Tutar</TH>
                 <TH className="text-right">TL Karşılığı</TH>
@@ -298,6 +305,9 @@ export function FinanceClient({
               {filteredInvoices.map((inv) => (
                 <TR key={inv.id}>
                   <TD className="font-medium">{formatDate(inv.issueDate)}</TD>
+                  <TD className="font-mono text-xs font-bold text-muted-foreground">
+                    {inv.projectCode}
+                  </TD>
                   <TD>
                     <Link
                       href={`/projects/${inv.projectId}`}

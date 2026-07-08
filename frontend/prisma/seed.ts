@@ -48,6 +48,7 @@ async function main() {
   // Projeler
   const p1 = await prisma.project.create({
     data: {
+      projectCode: "PRJ-101",
       name: "MES Entegrasyonu",
       factoryId: f1.id,
       probability: 90,
@@ -62,6 +63,7 @@ async function main() {
   });
   const p2 = await prisma.project.create({
     data: {
+      projectCode: "PRJ-102",
       name: "Enerji İzleme Sistemi",
       factoryId: f2.id,
       probability: 70,
@@ -76,6 +78,7 @@ async function main() {
   });
   const p3 = await prisma.project.create({
     data: {
+      projectCode: "PRJ-103",
       name: "Kestirimci Bakım Pilot",
       factoryId: f3.id,
       probability: 50,

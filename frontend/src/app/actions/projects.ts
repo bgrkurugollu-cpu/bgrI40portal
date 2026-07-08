@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import type { Priority, ProjectStatus, RiskLevel } from "@prisma/client";
 
 type ProjectInput = {
+  projectCode: string;
   name: string;
   factoryId: string;
   probability: number;
@@ -56,6 +57,7 @@ export async function updateProject(id: string, input: ProjectInput) {
 
   // Tarihsel log: değişen her alan için kayıt
   const fields: (keyof ProjectInput)[] = [
+    "projectCode",
     "name",
     "factoryId",
     "probability",

@@ -63,6 +63,7 @@ enum ProjectStatus {
 
 model Project {
   id           String        @id @default(cuid())
+  projectCode  String        @unique
   name         String
   factoryId    String
   factory      Factory       @relation(fields: [factoryId], references: [id])

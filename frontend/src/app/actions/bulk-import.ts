@@ -148,9 +148,14 @@ export async function bulkImportProjects(rows: RawRow[]): Promise<BulkResult> {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const name = str(r["Proje Adı"]);
+    const projectCode = str(r["Proje Kodu"]);
+    if (!projectCode) {
+      result.errors.push({ row: i + 1, message: "Proje Kodu boş bırakılamaz." });
+      continue;
+    }
+    const name = str(r["Proje İsmi"]);
     if (!name) {
-      result.errors.push({ row: i + 1, message: "Proje Adı boş bırakılamaz." });
+      result.errors.push({ row: i + 1, message: "Proje İsmi boş bırakılamaz." });
       continue;
     }
 
@@ -164,8 +169,10 @@ export async function bulkImportProjects(rows: RawRow[]): Promise<BulkResult> {
       continue;
     }
 
-    // Aynı isimde proje var mı kontrolü
-    const exists = await prisma.project.findFirst({ where: { name } });
+    // Aynı kod veya isimde proje var mı kontrolü
+    const exists = await prisma.project.findFirst({
+      where: { OR: [{ projectCode }, { name }] },
+    });
     if (exists) {
       result.skipped++;
       continue;
@@ -194,6 +201,7 @@ export async function bulkImportProjects(rows: RawRow[]): Promise<BulkResult> {
     try {
       await prisma.project.create({
         data: {
+          projectCode,
           name,
           factoryId,
           probability: num(r["İhtimal(%)"]) || 50,
@@ -224,7 +232,8 @@ export async function bulkImportAssignments(rows: RawRow[]): Promise<BulkResult>
   const result: BulkResult = { ok: true, inserted: 0, skipped: 0, errors: [] };
 
   const projects = await prisma.project.findMany();
-  const projectMap = new Map(projects.map((p) => [p.name, p.id]));
+  const projectCodeMap = new Map(projects.map((p) => [p.projectCode, p.id]));
+  const projectNameMap = new Map(projects.map((p) => [p.name, p.id]));
 
   const members = await prisma.teamMember.findMany();
   const memberMap = new Map(members.map((m) => [m.name, m.id]));
@@ -232,12 +241,14 @@ export async function bulkImportAssignments(rows: RawRow[]): Promise<BulkResult>
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     
+    const pCode = str(r["Proje Kodu"]);
     const projectName = str(r["Proje"]);
-    const projectId = projectMap.get(projectName);
+    const projectId = projectCodeMap.get(pCode) || projectNameMap.get(projectName);
+    
     if (!projectId) {
       result.errors.push({
         row: i + 1,
-        message: `"${projectName}" isimli proje bulunamadı.`,
+        message: `Proje bulunamadı (Kod: ${pCode}, İsim: ${projectName}).`,
       });
       continue;
     }
@@ -348,16 +359,19 @@ export async function bulkImportFinancials(rows: RawRow[]): Promise<BulkResult> 
   const result: BulkResult = { ok: true, inserted: 0, skipped: 0, errors: [] };
 
   const projects = await prisma.project.findMany();
-  const projectMap = new Map(projects.map((p) => [p.name, p.id]));
+  const projectCodeMap = new Map(projects.map((p) => [p.projectCode, p.id]));
+  const projectNameMap = new Map(projects.map((p) => [p.name, p.id]));
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
+    
+    const pCode = str(r["Proje Kodu"]);
     const projectName = str(r["Proje"]);
-    const projectId = projectMap.get(projectName);
+    const projectId = projectCodeMap.get(pCode) || projectNameMap.get(projectName);
     if (!projectId) {
       result.errors.push({
         row: i + 1,
-        message: `"${projectName}" isimli proje bulunamadı.`,
+        message: `Proje bulunamadı (Kod: ${pCode}, İsim: ${projectName}).`,
       });
       continue;
     }

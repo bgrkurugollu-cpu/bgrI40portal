@@ -16,6 +16,7 @@ export type FactoryDTO = { id: string; name: string; location: string | null };
 
 export type ProjectDTO = {
   id: string;
+  projectCode: string;
   name: string;
   factoryId: string;
   factoryName: string;
@@ -34,6 +35,8 @@ export type MemberDTO = { id: string; name: string; title: string | null };
 export type AssignmentDTO = {
   id: string;
   projectId: string;
+  projectCode?: string;
+  projectName?: string;
   memberId: string;
   memberName: string;
   year: number;
@@ -45,6 +48,9 @@ export type AssignmentDTO = {
 
 export type BudgetItemDTO = {
   id: string;
+  projectId?: string;
+  projectCode?: string;
+  projectName?: string;
   category: string;
   description: string;
   quantity: number;
@@ -57,6 +63,8 @@ export type BudgetItemDTO = {
 export type FinancialDTO = {
   id: string;
   projectId: string;
+  projectCode?: string;
+  projectName?: string;
   year: number;
   month: number;
   income: number;
@@ -72,6 +80,7 @@ export type FinancialDTO = {
 export type InvoiceDTO = {
   id: string;
   projectId: string;
+  projectCode?: string;
   projectName?: string;
   description: string;
   amount: number;

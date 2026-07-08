@@ -58,7 +58,8 @@ export function ProjectsClient({
         <Table>
           <THead>
             <TR>
-              <TH>Proje</TH>
+              <TH>Kodu</TH>
+              <TH>Proje İsmi</TH>
               <TH>Fabrika</TH>
               <TH>İhtimal</TH>
               <TH>Hedef Bütçe</TH>
@@ -72,6 +73,9 @@ export function ProjectsClient({
           <TBody>
             {projects.map((p) => (
               <TR key={p.id}>
+                <TD className="font-mono text-xs font-bold text-muted-foreground">
+                  {p.projectCode}
+                </TD>
                 <TD>
                   <Link
                     href={`/projects/${p.id}`}
@@ -122,7 +126,7 @@ export function ProjectsClient({
             ))}
             {projects.length === 0 && (
               <TR>
-                <TD colSpan={9} className="py-10 text-center text-muted-foreground">
+                <TD colSpan={10} className="py-10 text-center text-muted-foreground">
                   Henüz proje yok. &quot;Yeni Proje&quot; ile başlayın.
                 </TD>
               </TR>

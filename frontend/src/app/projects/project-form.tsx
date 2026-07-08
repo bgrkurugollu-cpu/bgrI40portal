@@ -26,6 +26,7 @@ export function ProjectForm({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const input = {
+      projectCode: String(fd.get("projectCode")),
       name: String(fd.get("name")),
       factoryId: String(fd.get("factoryId")),
       probability: Number(fd.get("probability")),
@@ -54,7 +55,11 @@ export function ProjectForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
+        <div>
+          <Label htmlFor="projectCode">Proje Kodu</Label>
+          <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="PRJ-001" required />
+        </div>
+        <div>
           <Label htmlFor="name">Proje Adı</Label>
           <Input id="name" name="name" defaultValue={project?.name} required />
         </div>

@@ -119,7 +119,12 @@ export function ProjectDetailClient(props: {
           >
             <ArrowLeft className="h-4 w-4" /> Projeler
           </Link>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <span className="font-mono text-xl text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {project.projectCode}
+            </span>
+            {project.name}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {project.factoryName} · {formatDate(project.startDate)} →{" "}
             {formatDate(project.endDate)}

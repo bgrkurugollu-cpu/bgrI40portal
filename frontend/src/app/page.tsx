@@ -75,6 +75,7 @@ export default async function DashboardPage() {
       upcomingInvoices={invoices.map((i) => ({
         id: i.id,
         projectId: i.projectId,
+        projectCode: i.project.projectCode,
         projectName: i.project.name,
         description: i.description,
         amount: Number(i.amount),
@@ -85,6 +86,7 @@ export default async function DashboardPage() {
       }))}
       projects={projects.map((p) => ({
         id: p.id,
+        projectCode: p.projectCode,
         name: p.name,
         factoryName: p.factory.name,
         status: p.status,

@@ -17,7 +17,7 @@ export default async function FinancePage() {
       include: { project: true },
       orderBy: { issueDate: "asc" },
     }),
-    prisma.project.findMany({ select: { id: true, name: true } }),
+    prisma.project.findMany({ select: { id: true, name: true, projectCode: true } }),
   ]);
 
   const finDtos: (FinancialDTO & { projectName: string })[] = financials.map((f) => {
@@ -25,6 +25,7 @@ export default async function FinancePage() {
     return {
       id: f.id,
       projectId: f.projectId,
+      projectCode: f.project.projectCode,
       projectName: f.project.name,
       year: f.year,
       month: f.month,
@@ -43,6 +44,7 @@ export default async function FinancePage() {
     return {
       id: i.id,
       projectId: i.projectId,
+      projectCode: i.project.projectCode,
       projectName: i.project.name,
       description: i.description,
       amount: Number(i.amount),

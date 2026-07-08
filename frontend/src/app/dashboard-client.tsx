@@ -229,6 +229,7 @@ export function DashboardClient({
               <Table>
                 <THead>
                   <TR>
+                    <TH>Kodu</TH>
                     <TH>Proje</TH>
                     <TH>Fabrika</TH>
                     <TH>Risk</TH>
@@ -239,6 +240,9 @@ export function DashboardClient({
                 <TBody>
                   {projects.map((p) => (
                     <TR key={p.id}>
+                      <TD className="font-mono text-xs font-bold text-muted-foreground">
+                        {p.projectCode}
+                      </TD>
                       <TD>
                         <Link
                           href={`/projects/${p.id}`}
@@ -287,6 +291,7 @@ export function DashboardClient({
                 <THead>
                   <TR>
                     <TH>Tarih</TH>
+                    <TH>Kodu</TH>
                     <TH>Proje</TH>
                     <TH className="text-right">Tutar</TH>
                     <TH>Durum</TH>
@@ -296,6 +301,9 @@ export function DashboardClient({
                   {upcomingInvoices.map((inv) => (
                     <TR key={inv.id}>
                       <TD className="font-medium">{formatDate(inv.issueDate)}</TD>
+                      <TD className="font-mono text-xs font-bold text-muted-foreground">
+                        {inv.projectCode}
+                      </TD>
                       <TD>
                         <Link
                           href={`/projects/${inv.projectId}`}
