@@ -11,6 +11,7 @@ export type ImportType =
   | "members"
   | "applications"
   | "projects"
+  | "assignments"
   | "budgetItems"
   | "financials"
   | "licenses";
@@ -20,6 +21,7 @@ export const IMPORT_TYPE_LABELS: Record<ImportType, string> = {
   members: "Ekip Üyeleri",
   applications: "Uygulamalar",
   projects: "Projeler",
+  assignments: "Kaynak Planı",
   budgetItems: "Bütçe Kalemleri",
   financials: "Aylık Finans",
   licenses: "Lisanslar",
@@ -97,6 +99,22 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
     ],
     notes:
       "Risk: LOW / MEDIUM / HIGH / CRITICAL  |  Öncelik: LOW / MEDIUM / HIGH / CRITICAL  |  Durum: PLANNED / ACTIVE / ON_HOLD / COMPLETED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
+  },
+  assignments: {
+    headers: [
+      "Proje",
+      "Ekip Üyesi",
+      "Yıl",
+      "Ay",
+      "Planlanan Gün",
+      "Gerçekleşen Gün",
+      "Kaynaklar",
+    ],
+    examples: [
+      ["MES Entegrasyonu", "Ahmet Yılmaz", 2026, 1, 15, 12, "Ignition Forum"],
+      ["Enerji İzleme", "Elif Demir", 2026, 2, 5, 0, "Sensör Dökümantasyonu"],
+    ],
+    notes: "Ay: 1-12 arası sayı  |  Günler 0-31 arası sayı olmalıdır",
   },
   budgetItems: {
     headers: [

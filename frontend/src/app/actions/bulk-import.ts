@@ -217,6 +217,68 @@ export async function bulkImportProjects(rows: RawRow[]): Promise<BulkResult> {
   return result;
 }
 
+// ── Kaynak Planı (Assignments) ──────────────────────────
+
+export async function bulkImportAssignments(rows: RawRow[]): Promise<BulkResult> {
+  await requireAdmin();
+  const result: BulkResult = { ok: true, inserted: 0, skipped: 0, errors: [] };
+
+  const projects = await prisma.project.findMany();
+  const projectMap = new Map(projects.map((p) => [p.name, p.id]));
+
+  const members = await prisma.teamMember.findMany();
+  const memberMap = new Map(members.map((m) => [m.name, m.id]));
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    
+    const projectName = str(r["Proje"]);
+    const projectId = projectMap.get(projectName);
+    if (!projectId) {
+      result.errors.push({
+        row: i + 1,
+        message: `"${projectName}" isimli proje bulunamadı.`,
+      });
+      continue;
+    }
+
+    const memberName = str(r["Ekip Üyesi"]);
+    const memberId = memberMap.get(memberName);
+    if (!memberId) {
+      result.errors.push({
+        row: i + 1,
+        message: `"${memberName}" isimli ekip üyesi bulunamadı.`,
+      });
+      continue;
+    }
+
+    const year = num(r["Yıl"]);
+    const month = num(r["Ay"]);
+    if (year < 2000 || year > 2100 || month < 1 || month > 12) {
+      result.errors.push({ row: i + 1, message: `Geçersiz yıl/ay: ${year}/${month}` });
+      continue;
+    }
+
+    const plannedDays = num(r["Planlanan Gün"]);
+    const actualDays = num(r["Gerçekleşen Gün"]);
+    const resourcesStr = str(r["Kaynaklar"]);
+
+    try {
+      await prisma.assignment.upsert({
+        where: { projectId_memberId_year_month: { projectId, memberId, year, month } },
+        create: { projectId, memberId, year, month, plannedDays, actualDays, resources: resourcesStr || null },
+        update: { plannedDays, actualDays, resources: resourcesStr || null },
+      });
+      result.inserted++;
+    } catch (e) {
+      result.errors.push({ row: i + 1, message: (e as Error).message });
+    }
+  }
+
+  revalidatePath("/resources");
+  return result;
+}
+
 // ── Bütçe Kalemleri ─────────────────────────────────────
 
 export async function bulkImportBudgetItems(rows: RawRow[]): Promise<BulkResult> {

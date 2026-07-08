@@ -56,8 +56,8 @@ export function Sidebar() {
           <Factory className="h-5 w-5" />
         </div>
         <div>
-          <div className="text-sm font-bold leading-tight">BGR Brain</div>
-          <div className="text-xs text-muted-foreground">Endüstri 4.0 Yönetimi</div>
+          <div className="text-sm font-bold leading-tight">Endüstri 4.0 Yönetim Portalı</div>
+          <div className="text-xs text-muted-foreground">DBD Ekibi PO Yönetimi</div>
         </div>
       </div>
 

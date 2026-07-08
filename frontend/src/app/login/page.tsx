@@ -47,7 +47,7 @@ export default function LoginPage() {
             <Factory className="h-7 w-7" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold">BGR Brain</h1>
+            <h1 className="text-xl font-bold">Endüstri 4.0 Yönetim Portalı</h1>
             <p className="text-sm text-muted-foreground">
               Proje, Bütçe ve Lisans Yönetimi
             </p>

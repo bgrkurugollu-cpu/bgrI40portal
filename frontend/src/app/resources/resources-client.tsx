@@ -97,7 +97,7 @@ export function ResourcesClient({
         <div>
           <h1 className="text-2xl font-bold">Kaynak Planı</h1>
           <p className="text-sm text-muted-foreground">
-            6 kişilik Endüstri 4.0 ekibi için bütünsel kapasite görünümü — {year}
+            5 kişilik Endüstri 4.0 ekibi için bütünsel kapasite görünümü — {year}
           </p>
         </div>
         <div className="flex items-center gap-2">

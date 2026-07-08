@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "BGR Brain — Proje, Bütçe ve Lisans Yönetimi",
+  title: "Endüstri 4.0 Yönetim Portalı — Proje, Bütçe ve Lisans Yönetimi",
   description: "Endüstri 4.0 ekibi için iç yönetim uygulaması",
 };
 
