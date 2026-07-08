@@ -23,6 +23,9 @@ export async function createProject(input: ProjectInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
 
+  const user = await prisma.user.findUnique({ where: { id: session.sub } });
+  const validUserId = user ? user.id : null;
+
   const project = await prisma.project.create({
     data: {
       ...input,
@@ -33,7 +36,7 @@ export async function createProject(input: ProjectInput) {
   await prisma.projectLog.create({
     data: {
       projectId: project.id,
-      userId: session.sub,
+      userId: validUserId,
       field: "oluşturma",
       newValue: "Proje oluşturuldu",
     },
@@ -46,6 +49,9 @@ export async function createProject(input: ProjectInput) {
 export async function updateProject(id: string, input: ProjectInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
+
+  const user = await prisma.user.findUnique({ where: { id: session.sub } });
+  const validUserId = user ? user.id : null;
 
   const existing = await prisma.project.findUniqueOrThrow({ where: { id } });
 
@@ -82,7 +88,7 @@ export async function updateProject(id: string, input: ProjectInput) {
     if (oldVal !== newVal) {
       logs.push({
         projectId: id,
-        userId: session.sub,
+        userId: validUserId,
         field: f,
         oldValue: oldVal,
         newValue: newVal,
