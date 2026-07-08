@@ -20,11 +20,17 @@ Proje, mikroservis karmaşasından uzak, monorepo veya temiz ayrıştırılmış
 ```text
 /
 ├── docker-compose.yml
-├── backend/ (Eğer Next.js full-stack seçilmediyse)
-├── frontend/
-│   ├── src/
-│   │   ├── components/ui/ (Shadcn bileşenleri)
-│   │   ├── context/ (Auth ve Tema yönetimleri)
-│   │   ├── hooks/
-│   │   └── app/ (veya pages/)
-└── database/ (PostgreSQL init scriptleri)
+├── database/init/ (PostgreSQL init scriptleri)
+└── frontend/
+    ├── src/
+    │   ├── components/ui/ (Shadcn bileşenleri)
+    │   ├── context/ (Auth ve Tema yönetimleri)
+    │   ├── hooks/
+    │   └── app/ (veya pages/)
+
+---
+
+## 4. Temel Geliştirme Prensibi ve GitHub Push Talimatı
+Agent, kullanıcıyla çalışırken aşağıdaki temel kurala uymak zorundadır:
+- **Tüm işlemleri ve kod geliştirmelerini tamamladıktan sonra, ek bir komut veya onay beklemeden ilgili değişiklikleri GitHub reposuna `commit` ve `push` etmelidir.**
+- Bu, her başarılı özellik eklemesi, hata çözümü veya doküman güncellemesinden sonra sistemin otomatik olarak uzak sunucuya yedeklenmesi (sürekli entegrasyon mantığı) için zorunludur.

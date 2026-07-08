@@ -1,6 +1,6 @@
-# BGR Brain Proje Analizi ve Fonksiyon Hafızası (Memory)
+# Endüstri 4.0 Yönetim Portalı Proje Analizi ve Fonksiyon Hafızası (Memory)
 
-Bu doküman, "bgr-brain" projesinin detaylı mimari analizini ve projedeki **tüm arka uç, veritabanı, yardımcı araç ve yönlendirme (route)** fonksiyonlarının %100'ünün çalışma mantıklarını içermektedir. Bu sayede projenin tam kapsamlı teknik hafızası oluşturulmuştur.
+Bu doküman, projenin detaylı mimari analizini ve projedeki **tüm arka uç, veritabanı, yardımcı araç ve yönlendirme (route)** fonksiyonlarının %100'ünün çalışma mantıklarını içermektedir. Bu sayede projenin tam kapsamlı teknik hafızası oluşturulmuştur.
 
 ## 1. Proje Mimarisi ve Genel Bakış
 

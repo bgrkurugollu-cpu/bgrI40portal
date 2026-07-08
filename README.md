@@ -1,14 +1,15 @@
-# BGR Brain — Proje, Bütçe ve Lisans Yönetimi
+# Endüstri 4.0 Yönetim Portalı — Proje, Bütçe ve Lisans Yönetimi
 
-Endüstri 4.0 ekibi için entegre iç yönetim uygulaması (Faz 1).
+DBD Ekibi PO Yönetimi için entegre iç yönetim uygulaması.
 
 ## Modüller
 1. **Proje ve Kaynak Yönetimi** — proje kayıtları, tarihsel değişiklik logu, risk/öncelik, aylık adam-gün planı ve plan/gerçekleşen karşılaştırması, ekip kapasite matrisi
 2. **Bütçe ve Finansal Yönetim** — kırılımlı bütçe kalemleri, aylık gelir/gider/iç kaynak geliri gridi, faturalama takvimi ve nakit akışı raporu
 3. **Lisans ve Key Yönetimi** — uygulama/lisans envanteri, yatırım ve abonelik maliyetleri, yenileme takibi
+4. **Toplu Veri Yükleme (Initial Load)** — admin paneli üzerinden Excel (.xlsx) şablonlarıyla fabrikalar, üyeler, uygulamalar, projeler, kaynak planları, bütçeler, finans ve lisans verilerinin toplu içe aktarımı
 
 ## Teknoloji
-Next.js 15 (App Router, Server Actions) · TypeScript · Tailwind CSS v4 · Framer Motion · Recharts · Prisma ORM · PostgreSQL 16 · JWT (HTTP-only cookie) · Docker Compose
+Next.js 15 (App Router, Server Actions) · TypeScript · Tailwind CSS v4 · Framer Motion · Recharts · Prisma ORM · PostgreSQL 16 · JWT (HTTP-only cookie) · SheetJS (xlsx) · Docker Compose
 
 ## Çalıştırma
 
@@ -34,5 +35,5 @@ docker compose up --build
         ├── app/            # Sayfalar, API route'ları, server action'lar
         ├── components/ui/  # UI bileşenleri
         ├── context/        # Auth ve tema context'leri
-        └── lib/            # Prisma client, JWT, yardımcılar
+        └── lib/            # Prisma client, JWT, excel-helpers, yardımcılar
 ```
