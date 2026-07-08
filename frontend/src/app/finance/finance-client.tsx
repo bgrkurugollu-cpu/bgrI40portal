@@ -178,7 +178,14 @@ export function FinanceClient({
                 <YAxis
                   tick={{ fontSize: 11 }}
                   stroke="var(--muted-foreground)"
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                  tickFormatter={(v) =>
+                    new Intl.NumberFormat("tr-TR", {
+                      notation: "compact",
+                      compactDisplay: "short",
+                      maximumFractionDigits: 1,
+                    }).format(v) + " ₺"
+                  }
+                  width={90}
                 />
                 <Tooltip
                   formatter={(v) => formatMoney(Number(v))}
@@ -202,24 +209,24 @@ export function FinanceClient({
 
       <Card>
         <CardHeader>
-          <CardTitle>Proje Bazlı Aylık Grid (TL karşılığı, bin ₺)</CardTitle>
+          <CardTitle>Proje Bazlı Aylık Grid (TL karşılığı)</CardTitle>
           <CardDescription>
             Her proje için gelir / gider / iç kaynak geliri satırları. Düzenlemek için proje
             detayına gidin.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="overflow-x-auto">
+          <Table className="min-w-[1200px]">
             <THead>
               <TR>
-                <TH>Proje</TH>
-                <TH>Kalem</TH>
+                <TH className="w-[140px] max-w-[160px]">Proje</TH>
+                <TH className="w-[80px]">Kalem</TH>
                 {MONTHS_TR_SHORT.map((m) => (
-                  <TH key={m} className="text-right">
+                  <TH key={m} className="text-right min-w-[90px]">
                     {m}
                   </TH>
                 ))}
-                <TH className="text-right">Toplam</TH>
+                <TH className="text-right min-w-[110px]">Toplam</TH>
               </TR>
             </THead>
             <TBody>
@@ -234,7 +241,7 @@ export function FinanceClient({
                   return (
                     <TR key={`${pid}-${key}`}>
                       {key === "incomeTRY" && (
-                        <TD rowSpan={3} className="align-top font-medium">
+                        <TD rowSpan={3} className="align-top font-medium w-[140px] max-w-[160px] truncate" title={name}>
                           <Link href={`/projects/${pid}`} className="text-primary hover:underline">
                             {name}
                           </Link>
@@ -242,11 +249,11 @@ export function FinanceClient({
                       )}
                       <TD className="text-muted-foreground">{label}</TD>
                       {vals.map((v, i) => (
-                        <TD key={i} className="text-right tabular-nums text-xs">
-                          {v > 0 ? (v / 1000).toFixed(0) : "·"}
+                        <TD key={i} className="text-right tabular-nums text-xs whitespace-nowrap">
+                          {v > 0 ? formatMoney(v) : "·"}
                         </TD>
                       ))}
-                      <TD className="text-right text-xs font-semibold tabular-nums">
+                      <TD className="text-right text-xs font-semibold tabular-nums whitespace-nowrap">
                         {formatMoney(total)}
                       </TD>
                     </TR>
