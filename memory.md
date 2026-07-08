@@ -90,3 +90,36 @@ Geriye kalan klasörlerdeki (`src/app/` içerisindeki `page.tsx` ve `*-client.ts
 - Shadcn UI kullanılarak `Card`, `Button`, `Dialog`, `Input`, `Select`, `Table` gibi temel arayüz bileşenleri oluşturulmuştur.
 
 Tüm bu sistem React'in modern App Router yapısında, asenkron Server Actions mantığıyla, REST API'lara ihtiyaç duymadan doğrudan Frontend - DB iletişimiyle hızlı ve güvenli bir şekilde çalışmaktadır.
+
+---
+
+## 6. Toplu Veri Yükleme (Initial Load) — Bulk Import
+
+### `src/app/actions/bulk-import.ts`
+Admin panelinden Excel (.xlsx) dosyası yükleyerek toplu veri girişi yapılmasını sağlayan server action'lar. Tüm fonksiyonlar `requireAdmin()` ile korunur.
+
+- **`bulkImportFactories(rows)`**: Fabrikaları toplu ekler. Aynı isimde varsa atlar.
+- **`bulkImportMembers(rows)`**: Ekip üyelerini toplu ekler. "Aktif" sütunu Evet/Hayır olarak okunur.
+- **`bulkImportApplications(rows)`**: Uygulamaları toplu ekler. Aynı isimde varsa atlar.
+- **`bulkImportProjects(rows)`**: Projeleri toplu ekler. Fabrika ismi ile ID eşleştirilir. Risk/Öncelik/Durum enum değerleri doğrulanır.
+- **`bulkImportBudgetItems(rows)`**: Bütçe kalemlerini toplu ekler. Proje ismi ile ID eşleştirilir. amount = quantity × unitPrice olarak hesaplanır.
+- **`bulkImportFinancials(rows)`**: Aylık finansal verileri toplu ekler. Gelir otomatik hesaplanır (giderin %5 fazlası). Aynı proje/yıl/ay varsa günceller (upsert).
+- **`bulkImportLicenses(rows)`**: Lisansları toplu ekler. Uygulama ve fabrika isimleri ile ID eşleştirilir.
+
+Her fonksiyon `BulkResult` döner: `{ ok, inserted, skipped, errors: [{ row, message }] }`
+
+### `src/lib/excel-helpers.ts`
+Client-side Excel işlemleri. SheetJS (xlsx) kütüphanesi kullanılır.
+
+- **`downloadTemplate(type)`**: Seçilen veri tipi için formatlı .xlsx şablonu oluşturup indirir. Başlık satırı + 1-2 örnek satır içerir.
+- **`parseExcelFile(file)`**: Yüklenen Excel dosyasını okuyup `{ headers, rows }` formatında JSON döner. Not satırları (⚠️ ile başlayan) otomatik atlanır.
+- **`getTemplateHeaders(type)`**: İlgili veri tipinin beklenen sütun başlıklarını döner (doğrulama için).
+
+### Admin UI — "Toplu Yükleme" Sekmesi
+Admin panelinde 5. sekme olarak yer alır. Kullanıcı akışı:
+1. Veri tipi seç (dropdown)
+2. "Şablon İndir" ile hazır .xlsx indir
+3. Dosyayı sürükle-bırak veya seç
+4. İlk 5 satır ön izlemede gösterilir
+5. "Yükle" butonu ile server action tetiklenir
+6. Sonuç raporu: eklenen/atlanan/hatalı satır sayıları ve hata detayları
