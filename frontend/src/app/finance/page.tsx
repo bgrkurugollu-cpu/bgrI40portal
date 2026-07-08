@@ -52,6 +52,8 @@ export default async function FinancePage() {
       amountTRY: toTRY(Number(i.amount), currency, rates),
       issueDate: i.issueDate.toISOString().slice(0, 10),
       status: i.status,
+      ebaNumber: i.ebaNumber,
+      poNumber: i.poNumber,
     };
   });
 
@@ -61,6 +63,7 @@ export default async function FinancePage() {
     EUR: rates.EUR,
     GBP: rates.GBP,
     date: rates.date,
+    time: rates.time,
     source: rates.source,
   };
 

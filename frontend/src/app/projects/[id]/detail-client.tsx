@@ -717,6 +717,8 @@ function InvoicesTab({
       issueDate: String(fd.get("issueDate")),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: fd.get("status") as any,
+      ebaNumber: fd.get("ebaNumber") ? String(fd.get("ebaNumber")) : undefined,
+      poNumber: fd.get("poNumber") ? String(fd.get("poNumber")) : undefined,
     });
     setLoading(false);
     setOpen(false);
@@ -738,6 +740,8 @@ function InvoicesTab({
           <THead>
             <TR>
               <TH>Açıklama</TH>
+              <TH>EBA No</TH>
+              <TH>P.O. No</TH>
               <TH>Kesim Tarihi</TH>
               <TH className="text-right">Tutar</TH>
               <TH className="text-right">TL Karşılığı</TH>
@@ -749,6 +753,8 @@ function InvoicesTab({
             {invoices.map((inv) => (
               <TR key={inv.id}>
                 <TD className="font-medium">{inv.description}</TD>
+                <TD>{inv.ebaNumber || "—"}</TD>
+                <TD>{inv.poNumber || "—"}</TD>
                 <TD className="text-muted-foreground">{formatDate(inv.issueDate)}</TD>
                 <TD className="text-right font-medium">
                   {formatMoney(inv.amount, inv.currency)}
@@ -787,7 +793,7 @@ function InvoicesTab({
             ))}
             {invoices.length === 0 && (
               <TR>
-                <TD colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TD colSpan={8} className="py-8 text-center text-muted-foreground">
                   Fatura kaydı yok.
                 </TD>
               </TR>
@@ -824,6 +830,14 @@ function InvoicesTab({
                   </option>
                 ))}
               </Select>
+            </div>
+            <div>
+              <Label>EBA No</Label>
+              <Input name="ebaNumber" placeholder="Opsiyonel" />
+            </div>
+            <div>
+              <Label>P.O. No</Label>
+              <Input name="poNumber" placeholder="Opsiyonel" />
             </div>
           </div>
           <div className="flex justify-end gap-2">

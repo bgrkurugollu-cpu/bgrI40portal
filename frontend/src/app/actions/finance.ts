@@ -84,6 +84,8 @@ export async function addInvoice(input: {
   currency: Currency;
   issueDate: string;
   status: InvoiceStatus;
+  ebaNumber?: string;
+  poNumber?: string;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");

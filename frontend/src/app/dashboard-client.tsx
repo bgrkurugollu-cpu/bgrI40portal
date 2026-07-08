@@ -293,6 +293,8 @@ export function DashboardClient({
                     <TH>Tarih</TH>
                     <TH>Kodu</TH>
                     <TH>Proje</TH>
+                    <TH>EBA No</TH>
+                    <TH>P.O. No</TH>
                     <TH className="text-right">Tutar</TH>
                     <TH>Durum</TH>
                   </TR>
@@ -313,6 +315,8 @@ export function DashboardClient({
                         </Link>
                         <div className="text-xs text-muted-foreground">{inv.description}</div>
                       </TD>
+                      <TD>{inv.ebaNumber || "—"}</TD>
+                      <TD>{inv.poNumber || "—"}</TD>
                       <TD className="text-right font-medium">
                         {formatMoney(inv.amount, inv.currency)}
                         {inv.currency !== "TRY" && (
@@ -330,7 +334,7 @@ export function DashboardClient({
                   ))}
                   {upcomingInvoices.length === 0 && (
                     <TR>
-                      <TD colSpan={4} className="py-8 text-center text-muted-foreground">
+                      <TD colSpan={7} className="py-8 text-center text-muted-foreground">
                         Yaklaşan fatura yok.
                       </TD>
                     </TR>

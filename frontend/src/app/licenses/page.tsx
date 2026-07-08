@@ -57,6 +57,7 @@ export default async function LicensesPage() {
     EUR: rates.EUR,
     GBP: rates.GBP,
     date: rates.date,
+    time: rates.time,
     source: rates.source,
   };
 

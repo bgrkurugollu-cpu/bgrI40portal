@@ -83,6 +83,8 @@ export default async function DashboardPage() {
         amountTRY: toTRY(Number(i.amount), i.currency as CurrencyCode, rates),
         issueDate: i.issueDate.toISOString().slice(0, 10),
         status: i.status,
+        ebaNumber: i.ebaNumber,
+        poNumber: i.poNumber,
       }))}
       projects={projects.map((p) => ({
         id: p.id,

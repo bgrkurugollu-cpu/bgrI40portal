@@ -89,6 +89,8 @@ export type InvoiceDTO = {
   amountTRY: number;
   issueDate: string;
   status: string;
+  ebaNumber: string | null;
+  poNumber: string | null;
 };
 
 export type LogDTO = {

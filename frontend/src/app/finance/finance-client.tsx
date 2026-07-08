@@ -305,6 +305,8 @@ export function FinanceClient({
                 <TH>Proje Kodu</TH>
                 <TH>Proje İsmi</TH>
                 <TH>Açıklama</TH>
+                <TH>EBA No</TH>
+                <TH>P.O. No</TH>
                 <TH className="text-right">Tutar</TH>
                 <TH className="text-right">TL Karşılığı</TH>
                 <TH>Durum</TH>
@@ -326,6 +328,8 @@ export function FinanceClient({
                     </Link>
                   </TD>
                   <TD className="text-muted-foreground">{inv.description}</TD>
+                  <TD>{inv.ebaNumber || "—"}</TD>
+                  <TD>{inv.poNumber || "—"}</TD>
                   <TD className="text-right font-medium">
                     {formatMoney(inv.amount, inv.currency)}
                   </TD>
@@ -339,7 +343,7 @@ export function FinanceClient({
               ))}
               {filteredInvoices.length === 0 && (
                 <TR>
-                  <TD colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TD colSpan={9} className="py-8 text-center text-muted-foreground">
                     Bu yıl için fatura kaydı yok.
                   </TD>
                 </TR>
