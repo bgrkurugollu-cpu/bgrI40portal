@@ -11,6 +11,7 @@ export type Rates = {
   EUR: number;
   GBP: number;
   date: string; // kur tarihi (TCMB yayın tarihi) veya "yedek"
+  time?: string; // TCMB fetch saati
   source: "TCMB" | "fallback";
 };
 
@@ -67,6 +68,7 @@ export async function getRates(): Promise<Rates> {
       EUR: eur,
       GBP: gbp,
       date: dateMatch?.[1] ?? new Date().toLocaleDateString("tr-TR"),
+      time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
       source: "TCMB",
     };
   } catch {

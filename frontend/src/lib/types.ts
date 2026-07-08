@@ -9,6 +9,7 @@ export type RatesDTO = {
   EUR: number;
   GBP: number;
   date: string;
+  time?: string;
   source: "TCMB" | "fallback";
 };
 

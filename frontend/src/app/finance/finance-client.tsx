@@ -419,7 +419,9 @@ export function RatesBanner({ rates }: { rates: RatesDTO }) {
         <RefreshCcw className="h-4 w-4 text-primary" />
         TCMB Döviz Kurları
         <span className="text-xs font-normal text-muted-foreground">
-          {rates.source === "TCMB" ? `(${rates.date})` : "(yedek kur — TCMB'ye ulaşılamadı)"}
+          {rates.source === "TCMB"
+            ? `(${rates.date}${rates.time ? ` ${rates.time}` : ""})`
+            : "(yedek kur — TCMB'ye ulaşılamadı)"}
         </span>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-1 tabular-nums">
