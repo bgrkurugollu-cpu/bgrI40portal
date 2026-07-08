@@ -1,17 +1,23 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Factory,
   UserCog,
   AppWindow,
+  Upload,
   Plus,
   Pencil,
   Trash2,
   Loader2,
   ShieldCheck,
+  Download,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +38,24 @@ import {
   upsertApplication,
   deleteApplication,
 } from "@/app/actions/admin";
+import {
+  bulkImportFactories,
+  bulkImportMembers,
+  bulkImportApplications,
+  bulkImportProjects,
+  bulkImportBudgetItems,
+  bulkImportFinancials,
+  bulkImportLicenses,
+  type BulkResult,
+} from "@/app/actions/bulk-import";
+import {
+  downloadTemplate,
+  parseExcelFile,
+  type ImportType,
+  type ParsedRow,
+  IMPORT_TYPE_LABELS,
+  getTemplateHeaders,
+} from "@/lib/excel-helpers";
 import { cn, formatDate } from "@/lib/utils";
 
 type UserRow = { id: string; name: string; email: string; role: string; createdAt: string };
@@ -51,13 +75,14 @@ type MemberRow = {
 };
 type AppRow = { id: string; name: string; vendor: string | null; licenseCount: number };
 
-type Tab = "users" | "factories" | "members" | "applications";
+type Tab = "users" | "factories" | "members" | "applications" | "bulk";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "users", label: "Kullanıcılar", icon: UserCog },
   { id: "factories", label: "Fabrikalar", icon: Factory },
   { id: "members", label: "Ekip Üyeleri", icon: Users },
   { id: "applications", label: "Uygulamalar", icon: AppWindow },
+  { id: "bulk", label: "Toplu Yükleme", icon: Upload },
 ];
 
 export function AdminClient({
@@ -137,6 +162,7 @@ export function AdminClient({
           {tab === "applications" && (
             <ApplicationsTab applications={applications} onError={setError} />
           )}
+          {tab === "bulk" && <BulkTab onError={setError} />}
         </motion.div>
       </AnimatePresence>
     </motion.div>
@@ -770,5 +796,326 @@ function ApplicationsTab({
         </form>
       </Dialog>
     </Card>
+  );
+}
+
+// ── Toplu Yükleme (Initial Load) ────────────────────────
+
+const IMPORT_ACTIONS: Record<ImportType, (rows: ParsedRow[]) => Promise<BulkResult>> = {
+  factories: bulkImportFactories,
+  members: bulkImportMembers,
+  applications: bulkImportApplications,
+  projects: bulkImportProjects,
+  budgetItems: bulkImportBudgetItems,
+  financials: bulkImportFinancials,
+  licenses: bulkImportLicenses,
+};
+
+const IMPORT_ORDER: ImportType[] = [
+  "factories",
+  "members",
+  "applications",
+  "projects",
+  "budgetItems",
+  "financials",
+  "licenses",
+];
+
+function BulkTab({ onError }: { onError: (e: string | null) => void }) {
+  const [importType, setImportType] = useState<ImportType>("factories");
+  const [parsedData, setParsedData] = useState<{ headers: string[]; rows: ParsedRow[] } | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const resetState = useCallback(() => {
+    setParsedData(null);
+    setFileName(null);
+    setBulkResult(null);
+    onError(null);
+  }, [onError]);
+
+  async function handleFile(file: File) {
+    resetState();
+    try {
+      const data = await parseExcelFile(file);
+      // Başlık doğrulaması
+      const expected = getTemplateHeaders(importType);
+      const missing = expected.filter((h) => !data.headers.includes(h));
+      if (missing.length > 0) {
+        onError(
+          `Eksik sütunlar: ${missing.join(", ")}. Lütfen doğru şablonu kullanın.`
+        );
+        return;
+      }
+      setParsedData(data);
+      setFileName(file.name);
+    } catch (err) {
+      onError((err as Error).message);
+    }
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  }
+
+  async function onImport() {
+    if (!parsedData) return;
+    setLoading(true);
+    setBulkResult(null);
+    onError(null);
+    try {
+      const action = IMPORT_ACTIONS[importType];
+      const res = await action(parsedData.rows);
+      setBulkResult(res);
+    } catch (err) {
+      onError((err as Error).message);
+    }
+    setLoading(false);
+  }
+
+  const previewRows = parsedData ? parsedData.rows.slice(0, 5) : [];
+
+  return (
+    <div className="space-y-5">
+      {/* Sıra uyarısı */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+        <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-4 w-4" />
+          Yükleme sırası önemlidir
+        </div>
+        <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5 text-muted-foreground">
+          {IMPORT_ORDER.map((t, i) => (
+            <span key={t}>
+              <span className="font-medium text-foreground">{i + 1}.</span>{" "}
+              {IMPORT_TYPE_LABELS[t]}
+              {i < IMPORT_ORDER.length - 1 && <span className="mx-1">→</span>}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
+            Excel ile Toplu Veri Yükleme
+          </CardTitle>
+          <CardDescription>
+            Şablonu indirin, verilerinizi doldurun ve sisteme yükleyin.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Adım 1: Veri tipi ve şablon */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px]">
+              <Label>Veri Tipi</Label>
+              <Select
+                value={importType}
+                onChange={(e) => {
+                  setImportType(e.target.value as ImportType);
+                  resetState();
+                }}
+              >
+                {IMPORT_ORDER.map((t) => (
+                  <option key={t} value={t}>
+                    {IMPORT_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => downloadTemplate(importType)}
+            >
+              <Download className="h-4 w-4" />
+              Şablon İndir (.xlsx)
+            </Button>
+          </div>
+
+          {/* Adım 2: Dosya yükleme */}
+          <div
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 transition-colors",
+              dragging
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-primary/50"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+          >
+            <Upload
+              className={cn(
+                "h-10 w-10",
+                dragging ? "text-primary" : "text-muted-foreground/50"
+              )}
+            />
+            <div className="text-center">
+              <p className="text-sm font-medium">
+                {fileName ? (
+                  <>
+                    <FileSpreadsheet className="mr-1 inline h-4 w-4 text-green-600" />
+                    {fileName}
+                  </>
+                ) : (
+                  "Excel dosyanızı sürükleyip bırakın"
+                )}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                veya{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  dosya seçin
+                </button>{" "}
+                (.xlsx, .xls, .csv)
+              </p>
+            </div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={onFileChange}
+            />
+          </div>
+
+          {/* Adım 3: Ön izleme */}
+          {parsedData && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">
+                  Ön İzleme ({parsedData.rows.length} satır)
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetState}
+                  className="text-muted-foreground"
+                >
+                  <XCircle className="h-4 w-4" /> Temizle
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-auto rounded-lg border">
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH className="w-10 text-center">#</TH>
+                      {parsedData.headers.map((h) => (
+                        <TH key={h}>{h}</TH>
+                      ))}
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {previewRows.map((row, i) => (
+                      <TR key={i}>
+                        <TD className="text-center text-muted-foreground">
+                          {i + 1}
+                        </TD>
+                        {parsedData.headers.map((h) => (
+                          <TD key={h} className="text-xs">
+                            {row[h] != null ? String(row[h]) : "—"}
+                          </TD>
+                        ))}
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              </div>
+              {parsedData.rows.length > 5 && (
+                <p className="text-xs text-muted-foreground">
+                  … ve {parsedData.rows.length - 5} satır daha
+                </p>
+              )}
+
+              <div className="flex justify-end">
+                <Button onClick={onImport} disabled={loading}>
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {parsedData.rows.length} satırı yükle
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Adım 4: Sonuç raporu */}
+          {bulkResult && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <h3 className="text-sm font-semibold">Yükleme Sonucu</h3>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 rounded-md bg-green-500/10 px-3 py-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="font-semibold text-green-700 dark:text-green-400">
+                    {bulkResult.inserted}
+                  </span>{" "}
+                  eklendi
+                </div>
+                {bulkResult.skipped > 0 && (
+                  <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                      {bulkResult.skipped}
+                    </span>{" "}
+                    atlandı (zaten var)
+                  </div>
+                )}
+                {bulkResult.errors.length > 0 && (
+                  <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="font-semibold text-red-700 dark:text-red-400">
+                      {bulkResult.errors.length}
+                    </span>{" "}
+                    hata
+                  </div>
+                )}
+              </div>
+              {bulkResult.errors.length > 0 && (
+                <div className="max-h-48 overflow-auto rounded-lg border border-destructive/30 bg-destructive/5">
+                  <Table>
+                    <THead>
+                      <TR>
+                        <TH className="w-16">Satır</TH>
+                        <TH>Hata</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {bulkResult.errors.map((err, i) => (
+                        <TR key={i}>
+                          <TD className="font-medium text-destructive">
+                            {err.row}
+                          </TD>
+                          <TD className="text-xs text-muted-foreground">
+                            {err.message}
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
