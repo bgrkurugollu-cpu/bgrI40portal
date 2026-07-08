@@ -70,7 +70,8 @@ export function FinanceClient({
     },
     { income: 0, expense: 0, internal: 0 }
   );
-  const net = totals.income + totals.internal - totals.expense;
+  const ciro = totals.income + totals.internal;
+  const karlilik = ciro - totals.expense;
 
   const chartData = useMemo(
     () =>
@@ -84,7 +85,8 @@ export function FinanceClient({
           Gelir: Math.round(income),
           Gider: Math.round(expense),
           "İç Kaynak": Math.round(internal),
-          Net: Math.round(income + internal - expense),
+          Ciro: Math.round(income + internal),
+          Karlılık: Math.round(income + internal - expense),
         };
       }),
     [filtered]
@@ -152,15 +154,21 @@ export function FinanceClient({
         ile TL&apos;ye çevrilerek gösterilir.
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <KpiCard icon={TrendingUp} label="Toplam Gelir (TL)" value={formatMoney(totals.income)} tone="success" />
         <KpiCard icon={TrendingDown} label="Toplam Gider (TL)" value={formatMoney(totals.expense)} tone="destructive" />
         <KpiCard icon={Wallet} label="İç Kaynak Geliri (TL)" value={formatMoney(totals.internal)} tone="info" />
         <KpiCard
           icon={Receipt}
-          label="Net (TL)"
-          value={formatMoney(net)}
-          tone={net >= 0 ? "success" : "destructive"}
+          label="Ciro (TL)"
+          value={formatMoney(ciro)}
+          tone="success"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="Karlılık (TL)"
+          value={formatMoney(karlilik)}
+          tone={karlilik >= 0 ? "success" : "destructive"}
         />
       </div>
 
@@ -200,7 +208,8 @@ export function FinanceClient({
                 <Bar dataKey="Gelir" fill="var(--success)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Gider" fill="var(--destructive)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="İç Kaynak" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="Net" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Ciro" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Karlılık" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -332,6 +341,66 @@ export function FinanceClient({
                 <TR>
                   <TD colSpan={6} className="py-8 text-center text-muted-foreground">
                     Bu yıl için fatura kaydı yok.
+                  </TD>
+                </TR>
+              )}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Proje Bazlı Ciro ve Karlılık (TL karşılığı)</CardTitle>
+          <CardDescription>
+            Her proje için toplam gelir, gider, iç kaynak, ciro ve karlılık özeti
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Proje Kodu</TH>
+                <TH>Proje İsmi</TH>
+                <TH className="text-right">Toplam Gelir</TH>
+                <TH className="text-right">Toplam Gider</TH>
+                <TH className="text-right">İç Kaynak</TH>
+                <TH className="text-right text-primary">Ciro</TH>
+                <TH className="text-right font-bold">Karlılık</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {Array.from(pivot.entries()).map(([pid, { code, name, months }]) => {
+                const income = months.reduce((s, m) => s + m.incomeTRY, 0);
+                const expense = months.reduce((s, m) => s + m.expenseTRY, 0);
+                const internal = months.reduce((s, m) => s + m.internalIncomeTRY, 0);
+                const pCiro = income + internal;
+                const pKarlilik = pCiro - expense;
+
+                return (
+                  <TR key={pid}>
+                    <TD className="font-mono text-xs font-bold text-muted-foreground">{code}</TD>
+                    <TD>
+                      <Link href={`/projects/${pid}`} className="text-primary hover:underline">
+                        {name}
+                      </Link>
+                    </TD>
+                    <TD className="text-right">{formatMoney(income)}</TD>
+                    <TD className="text-right">{formatMoney(expense)}</TD>
+                    <TD className="text-right">{formatMoney(internal)}</TD>
+                    <TD className="text-right font-semibold text-primary">{formatMoney(pCiro)}</TD>
+                    <TD className="text-right font-bold">
+                      <Badge tone={pKarlilik >= 0 ? "success" : "destructive"}>
+                        {formatMoney(pKarlilik)}
+                      </Badge>
+                    </TD>
+                  </TR>
+                );
+              })}
+              {pivot.size === 0 && (
+                <TR>
+                  <TD colSpan={7} className="py-8 text-center text-muted-foreground">
+                    Bu yıl için finansal kayıt yok.
                   </TD>
                 </TR>
               )}

@@ -67,6 +67,17 @@ export function ResourcesClient({
     return map;
   }, [filtered, members]);
 
+  // Üye x Ay sapma matrisi (Gerçekleşen - Planlanan)
+  const deviation = useMemo(() => {
+    const map = new Map<string, number[]>();
+    members.forEach((m) => map.set(m.id, Array(12).fill(0)));
+    filtered.forEach((a) => {
+      const arr = map.get(a.memberId);
+      if (arr) arr[a.month - 1] += (a.actualDays - a.plannedDays);
+    });
+    return map;
+  }, [filtered, members]);
+
   // Aylık plan vs gerçekleşen grafik verisi
   const chartData = useMemo(
     () =>
@@ -266,6 +277,60 @@ export function ResourcesClient({
                   </TD>
                 </TR>
               )}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Kişi Bazlı Aylık Sapma Tablosu</CardTitle>
+          <CardDescription>
+            Gerçekleşen ile planlanan efor farkı (Gerçekleşen - Planlanan). Kırmızı: Fazla mesai (Overload), Sarı: Eksik efor (Underload).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Ekip Üyesi</TH>
+                {MONTHS_TR_SHORT.map((m) => (
+                  <TH key={m} className="text-center">
+                    {m}
+                  </TH>
+                ))}
+                <TH className="text-right">Net Sapma</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {members.map((m) => {
+                const arr = deviation.get(m.id) ?? [];
+                const total = arr.reduce((s, v) => s + v, 0);
+                return (
+                  <TR key={m.id}>
+                    <TD>
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs text-muted-foreground">{m.title}</div>
+                    </TD>
+                    {arr.map((v, i) => {
+                      let bgClass = "bg-success/10";
+                      if (v > 0) bgClass = "bg-destructive/15 font-semibold text-destructive";
+                      else if (v < 0) bgClass = "bg-warning/20 font-medium text-amber-600 dark:text-amber-500";
+                      
+                      return (
+                        <TD key={i} className={cn("text-center tabular-nums", v !== 0 ? bgClass : "text-muted-foreground/40")}>
+                          {v > 0 ? `+${v}` : v < 0 ? v : "·"}
+                        </TD>
+                      );
+                    })}
+                    <TD className="text-right font-bold tabular-nums">
+                      <span className={total > 0 ? "text-destructive" : total < 0 ? "text-amber-600 dark:text-amber-500" : ""}>
+                        {total > 0 ? `+${total}` : total}
+                      </span>
+                    </TD>
+                  </TR>
+                );
+              })}
             </TBody>
           </Table>
         </CardContent>
