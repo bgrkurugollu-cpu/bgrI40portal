@@ -457,7 +457,19 @@ export async function importFinancials(prisma: PrismaClient, rows: RawRow[]): Pr
 }
 
 // ── Lisanslar ───────────────────────────────────────────
-// Doğal anahtar: Lisans Key.
+// Doğal anahtar: Lisans Key + Fabrika(lar) + Açıklama.
+//
+// ÖNEMLİ: Lisans Key TEK BAŞINA benzersiz DEĞİLDİR. Aynı ürün kodu (Lisans Key)
+// farklı fabrikalarda, farklı tutarlarda, farklı kalemler (Açıklama) olarak
+// ayrı satırlar hâlinde bulunur; her satır kendi başına ayrı bir lisans kaydıdır.
+// Bu yüzden dedup için "Lisans Key + bağlı fabrika kümesi + Açıklama" birleşimi
+// kullanılır. Aynı dosya tekrar yüklendiğinde her satır kendi eşine denk gelip
+// güncellenir (çoğalmaz); farklı fabrika/kalem satırları ayrı ayrı korunur.
+
+/** Lisansın doğal anahtarını üretir (fabrika ID'leri sıralanır ki sıra önemsiz olsun). */
+function licenseNaturalKey(licenseKey: string, description: string, factoryIds: string[]): string {
+  return [licenseKey, description, [...factoryIds].sort().join(",")].join(" ");
+}
 
 export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -467,6 +479,16 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
 
   const factories = await prisma.factory.findMany();
   const factoryMap = new Map(factories.map((f) => [f.name, f.id]));
+
+  // Mevcut lisansları doğal anahtarla eşleştirmek için bir kez yükle.
+  const existingLicenses = await prisma.license.findMany({ include: { factories: true } });
+  const existingByKey = new Map<string, string>();
+  for (const l of existingLicenses) {
+    existingByKey.set(
+      licenseNaturalKey(l.licenseKey, l.description ?? "", l.factories.map((f) => f.id)),
+      l.id
+    );
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -535,10 +557,11 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
     }
 
     const renewalDate = parseExcelDate(r["Yenileme Tarihi"]);
+    const description = str(r["Açıklama"]);
 
     const fields = {
       applicationId,
-      description: str(r["Açıklama"]) || null,
+      description: description || null,
       totalInvestment: num(r["Yatırım Bedeli"]),
       isSubscription,
       subscriptionCost: num(r["Abonelik Ücreti"]),
@@ -548,19 +571,24 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
       status: statusStr,
     };
 
+    const natKey = licenseNaturalKey(licenseKey, description, factoryIds);
+
     try {
-      const existing = await prisma.license.findFirst({ where: { licenseKey } });
-      if (existing) {
-        // set: fabrika listesini tamamen değiştirir (eklemez/çoğaltmaz, mevcut atamaların üzerine yazar).
+      const existingId = existingByKey.get(natKey);
+      if (existingId) {
+        // Aynı Lisans Key + fabrika kümesi + Açıklama: mevcut kaydı güncelle (çoğaltma yok).
+        // Fabrika kümesi anahtarın parçası olduğundan set no-op'tur; tutarlılık için yine de yazıyoruz.
         await prisma.license.update({
-          where: { id: existing.id },
+          where: { id: existingId },
           data: { ...fields, factories: { set: factoryIds.map((id) => ({ id })) } },
         });
         result.updated++;
       } else {
-        await prisma.license.create({
+        const created = await prisma.license.create({
           data: { ...fields, licenseKey, factories: { connect: factoryIds.map((id) => ({ id })) } },
         });
+        // Aynı içe aktarma içinde birebir aynı satır iki kez geçerse ikincisini de yakala.
+        existingByKey.set(natKey, created.id);
         result.inserted++;
       }
     } catch (e) {
