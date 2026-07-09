@@ -78,7 +78,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       [
         "PRJ-101",
         "MES Entegrasyonu",
-        "Gebze Fabrikası",
+        "Gebze Fabrikası, İzmir Fabrikası",
         90,
         2500000,
         "2026-01-15",
@@ -103,7 +103,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       ],
     ],
     notes:
-      "Risk: LOW / MEDIUM / HIGH / CRITICAL  |  Öncelik: LOW / MEDIUM / HIGH / CRITICAL  |  Durum: PLANNED / ACTIVE / ON_HOLD / COMPLETED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
+      "Fabrika: birden fazla fabrika için virgül veya noktalı virgülle ayırın (örn. \"Gebze Fabrikası, İzmir Fabrikası\")  |  Risk: LOW / MEDIUM / HIGH / CRITICAL  |  Öncelik: LOW / MEDIUM / HIGH / CRITICAL  |  Durum: PLANNED / ACTIVE / ON_HOLD / COMPLETED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
   },
   assignments: {
     headers: [

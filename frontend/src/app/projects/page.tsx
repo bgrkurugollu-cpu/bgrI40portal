@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const [projects, factories] = await Promise.all([
     prisma.project.findMany({
-      include: { factory: true },
+      include: { factories: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.factory.findMany({ orderBy: { name: "asc" } }),
@@ -15,9 +15,10 @@ export default async function ProjectsPage() {
 
   const dtos: ProjectDTO[] = projects.map((p) => ({
     id: p.id,
+    projectCode: p.projectCode,
     name: p.name,
-    factoryId: p.factoryId,
-    factoryName: p.factory.name,
+    factoryIds: p.factories.map((f) => f.id),
+    factoryNames: p.factories.map((f) => f.name),
     probability: p.probability,
     targetBudget: Number(p.targetBudget),
     startDate: p.startDate?.toISOString().slice(0, 10) ?? null,

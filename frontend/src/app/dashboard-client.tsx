@@ -60,6 +60,7 @@ export function DashboardClient({
   upcomingInvoices: {
     id: string;
     projectId: string;
+    projectCode: string;
     projectName: string;
     description: string;
     amount: number;
@@ -67,9 +68,12 @@ export function DashboardClient({
     amountTRY: number;
     issueDate: string;
     status: string;
+    ebaNumber: string | null;
+    poNumber: string | null;
   }[];
   projects: {
     id: string;
+    projectCode: string;
     name: string;
     factoryName: string;
     status: string;

@@ -25,7 +25,7 @@ export default async function ProjectDetailPage({
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
-      factory: true,
+      factories: true,
       logs: {
         include: { user: true },
         orderBy: { createdAt: "desc" },
@@ -47,9 +47,10 @@ export default async function ProjectDetailPage({
 
   const dto: ProjectDTO = {
     id: project.id,
+    projectCode: project.projectCode,
     name: project.name,
-    factoryId: project.factoryId,
-    factoryName: project.factory.name,
+    factoryIds: project.factories.map((f) => f.id),
+    factoryNames: project.factories.map((f) => f.name),
     probability: project.probability,
     targetBudget: Number(project.targetBudget),
     startDate: project.startDate?.toISOString().slice(0, 10) ?? null,

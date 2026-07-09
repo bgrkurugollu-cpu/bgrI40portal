@@ -85,7 +85,7 @@ export function ProjectsClient({
                     <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
                   </Link>
                 </TD>
-                <TD className="text-muted-foreground">{p.factoryName}</TD>
+                <TD className="text-muted-foreground">{p.factoryNames.join(", ")}</TD>
                 <TD>
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">

@@ -8,7 +8,7 @@ import type { Priority, ProjectStatus, RiskLevel } from "@prisma/client";
 type ProjectInput = {
   projectCode: string;
   name: string;
-  factoryId: string;
+  factoryIds: string[];
   probability: number;
   targetBudget: number;
   startDate: string | null;
@@ -22,15 +22,18 @@ type ProjectInput = {
 export async function createProject(input: ProjectInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
+  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
   const validUserId = user ? user.id : null;
 
+  const { factoryIds, ...rest } = input;
   const project = await prisma.project.create({
     data: {
-      ...input,
+      ...rest,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
+      factories: { connect: factoryIds.map((id) => ({ id })) },
     },
   });
   await prisma.projectLog.create({
@@ -49,23 +52,27 @@ export async function createProject(input: ProjectInput) {
 export async function updateProject(id: string, input: ProjectInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
+  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
   const validUserId = user ? user.id : null;
 
-  const existing = await prisma.project.findUniqueOrThrow({ where: { id } });
+  const existing = await prisma.project.findUniqueOrThrow({
+    where: { id },
+    include: { factories: true },
+  });
 
+  const { factoryIds, ...scalarInput } = input;
   const next = {
-    ...input,
+    ...scalarInput,
     startDate: input.startDate ? new Date(input.startDate) : null,
     endDate: input.endDate ? new Date(input.endDate) : null,
   };
 
-  // Tarihsel log: değişen her alan için kayıt
-  const fields: (keyof ProjectInput)[] = [
+  // Tarihsel log: değişen her skalar alan için kayıt (fabrika ayrı ele alınır)
+  const fields: (keyof typeof next)[] = [
     "projectCode",
     "name",
-    "factoryId",
     "probability",
     "targetBudget",
     "startDate",
@@ -89,15 +96,32 @@ export async function updateProject(id: string, input: ProjectInput) {
       logs.push({
         projectId: id,
         userId: validUserId,
-        field: f,
+        field: f as string,
         oldValue: oldVal,
         newValue: newVal,
       });
     }
   }
 
+  // Fabrika değişikliğini isim kümesi karşılaştırmasıyla logla
+  const oldFactoryNames = existing.factories.map((f) => f.name).sort();
+  const newFactories = await prisma.factory.findMany({ where: { id: { in: factoryIds } } });
+  const newFactoryNames = newFactories.map((f) => f.name).sort();
+  if (oldFactoryNames.join(", ") !== newFactoryNames.join(", ")) {
+    logs.push({
+      projectId: id,
+      userId: validUserId,
+      field: "factories",
+      oldValue: oldFactoryNames.join(", "),
+      newValue: newFactoryNames.join(", "),
+    });
+  }
+
   await prisma.$transaction([
-    prisma.project.update({ where: { id }, data: next }),
+    prisma.project.update({
+      where: { id },
+      data: { ...next, factories: { set: factoryIds.map((fid) => ({ id: fid })) } },
+    }),
     ...(logs.length ? [prisma.projectLog.createMany({ data: logs })] : []),
   ]);
 

@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const [rates, projects, financials, assignments, licenses, invoices, memberCount] =
     await Promise.all([
       getRates(),
-      prisma.project.findMany({ include: { factory: true } }),
+      prisma.project.findMany({ include: { factories: true } }),
       prisma.monthlyFinancial.findMany({ where: { year } }),
       prisma.assignment.findMany({ where: { year } }),
       prisma.license.findMany(),
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
         id: p.id,
         projectCode: p.projectCode,
         name: p.name,
-        factoryName: p.factory.name,
+        factoryName: p.factories.map((f) => f.name).join(", "),
         status: p.status,
         riskLevel: p.riskLevel,
         probability: p.probability,

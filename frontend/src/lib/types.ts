@@ -19,8 +19,8 @@ export type ProjectDTO = {
   id: string;
   projectCode: string;
   name: string;
-  factoryId: string;
-  factoryName: string;
+  factoryIds: string[];
+  factoryNames: string[];
   probability: number;
   targetBudget: number;
   startDate: string | null;

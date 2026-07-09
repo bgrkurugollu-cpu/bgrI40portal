@@ -201,12 +201,29 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    const factoryName = str(r["Fabrika"]);
-    const factoryId = factoryMap.get(factoryName);
-    if (!factoryId) {
+    // Fabrika: birden fazla fabrika virgül/noktalı virgülle ayrılabilir.
+    const factoryNames = str(r["Fabrika"])
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (factoryNames.length === 0) {
+      result.errors.push({ row: i + 1, message: "Fabrika boş bırakılamaz. Önce fabrikaları yükleyin." });
+      continue;
+    }
+    const factoryIds: string[] = [];
+    let missingFactory: string | null = null;
+    for (const fn of factoryNames) {
+      const fid = factoryMap.get(fn);
+      if (!fid) {
+        missingFactory = fn;
+        break;
+      }
+      factoryIds.push(fid);
+    }
+    if (missingFactory) {
       result.errors.push({
         row: i + 1,
-        message: `"${factoryName}" isimli fabrika bulunamadı. Önce fabrikaları yükleyin.`,
+        message: `"${missingFactory}" isimli fabrika bulunamadı. Önce fabrikaları yükleyin.`,
       });
       continue;
     }
@@ -245,7 +262,6 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
 
     const data = {
       name,
-      factoryId,
       probability: num(r["İhtimal(%)"]) || 50,
       targetBudget: num(r["Hedef Bütçe"]),
       startDate,
@@ -259,10 +275,15 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
     try {
       const existing = await prisma.project.findUnique({ where: { projectCode } });
       if (existing) {
-        await prisma.project.update({ where: { id: existing.id }, data });
+        await prisma.project.update({
+          where: { id: existing.id },
+          data: { ...data, factories: { set: factoryIds.map((id) => ({ id })) } },
+        });
         result.updated++;
       } else {
-        await prisma.project.create({ data: { projectCode, ...data } });
+        await prisma.project.create({
+          data: { projectCode, ...data, factories: { connect: factoryIds.map((id) => ({ id })) } },
+        });
         result.inserted++;
       }
     } catch (e) {

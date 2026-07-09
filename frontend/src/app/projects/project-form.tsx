@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { createProject, updateProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
 import { RISK_LABELS, STATUS_LABELS } from "@/lib/utils";
@@ -20,15 +21,22 @@ export function ProjectForm({
   onDone: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [factoryIds, setFactoryIds] = useState<string[]>(project?.factoryIds ?? []);
+  const [factoryError, setFactoryError] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (factoryIds.length === 0) {
+      setFactoryError(true);
+      return;
+    }
+    setFactoryError(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const input = {
       projectCode: String(fd.get("projectCode")),
       name: String(fd.get("name")),
-      factoryId: String(fd.get("factoryId")),
+      factoryIds,
       probability: Number(fd.get("probability")),
       targetBudget: Number(fd.get("targetBudget")),
       startDate: (fd.get("startDate") as string) || null,
@@ -64,14 +72,19 @@ export function ProjectForm({
           <Input id="name" name="name" defaultValue={project?.name} required />
         </div>
         <div>
-          <Label htmlFor="factoryId">Fabrika</Label>
-          <Select id="factoryId" name="factoryId" defaultValue={project?.factoryId} required>
-            {factories.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </Select>
+          <Label htmlFor="factoryId">Fabrika(lar)</Label>
+          <MultiSelect
+            options={factories.map((f) => ({ value: f.id, label: f.name }))}
+            selected={factoryIds}
+            onChange={(v) => {
+              setFactoryIds(v);
+              if (v.length > 0) setFactoryError(false);
+            }}
+            placeholder="Fabrika seçin"
+          />
+          {factoryError && (
+            <p className="mt-1 text-xs text-destructive">En az bir fabrika seçilmelidir.</p>
+          )}
         </div>
         <div>
           <Label htmlFor="probability">Gerçekleşme İhtimali (%)</Label>

@@ -65,8 +65,7 @@ model Project {
   id           String        @id @default(cuid())
   projectCode  String        @unique
   name         String
-  factoryId    String
-  factory      Factory       @relation(fields: [factoryId], references: [id])
+  factories    Factory[]
   probability  Int           @default(50) // gerçekleşme ihtimali (%)
   targetBudget Decimal       @default(0) @db.Decimal(14, 2)
   startDate    DateTime?

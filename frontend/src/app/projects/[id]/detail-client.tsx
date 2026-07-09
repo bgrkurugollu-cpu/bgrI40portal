@@ -126,7 +126,7 @@ export function ProjectDetailClient(props: {
             {project.name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {project.factoryName} · {formatDate(project.startDate)} →{" "}
+            {project.factoryNames.join(", ")} · {formatDate(project.startDate)} →{" "}
             {formatDate(project.endDate)}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -858,7 +858,8 @@ function InvoicesTab({
 
 const FIELD_LABELS: Record<string, string> = {
   name: "Proje Adı",
-  factoryId: "Fabrika",
+  projectCode: "Proje Kodu",
+  factories: "Fabrika(lar)",
   probability: "Gerçekleşme İhtimali",
   targetBudget: "Hedef Bütçe",
   startDate: "Başlangıç Tarihi",
