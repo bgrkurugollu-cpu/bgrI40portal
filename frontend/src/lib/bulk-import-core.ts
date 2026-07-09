@@ -8,6 +8,11 @@
  *
  * Bu sayede aynı içe aktarma mantığı hem admin panelindeki Server Action'lar
  * hem de prisma/seed.ts tarafından (Node ortamında) yeniden kullanılabilir.
+ *
+ * İçe aktarma her zaman idempotenttir: her entity için doğal bir anahtarla
+ * (isim, kod, lisans key vb.) mevcut kayıt aranır. Bulunursa üzerine YAZILIR
+ * (güncellenir), bulunamazsa yeni kayıt eklenir. Aynı Excel iki kez yüklense
+ * bile satırlar çoğalmaz — bu davranış tüm importer'larda tutarlıdır.
  */
 import type {
   Currency,
@@ -23,6 +28,7 @@ import type {
 export type BulkResult = {
   ok: boolean;
   inserted: number;
+  updated: number;
   skipped: number;
   errors: { row: number; message: string }[];
 };
@@ -71,10 +77,11 @@ const VALID_INVOICE_STATUSES: InvoiceStatus[] = ["PLANNED", "ISSUED", "PAID", "O
 const INCOME_MARKUP = 1.05;
 
 function emptyResult(): BulkResult {
-  return { ok: true, inserted: 0, skipped: 0, errors: [] };
+  return { ok: true, inserted: 0, updated: 0, skipped: 0, errors: [] };
 }
 
 // ── Fabrikalar ──────────────────────────────────────────
+// Doğal anahtar: Ad (schema'da @unique).
 
 export async function importFactories(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -86,16 +93,17 @@ export async function importFactories(prisma: PrismaClient, rows: RawRow[]): Pro
       result.errors.push({ row: i + 1, message: "Ad boş bırakılamaz." });
       continue;
     }
-    const exists = await prisma.factory.findUnique({ where: { name } });
-    if (exists) {
-      result.skipped++;
-      continue;
-    }
+    const location = str(r["Lokasyon"]) || null;
+
     try {
-      await prisma.factory.create({
-        data: { name, location: str(r["Lokasyon"]) || null },
-      });
-      result.inserted++;
+      const existing = await prisma.factory.findUnique({ where: { name } });
+      if (existing) {
+        await prisma.factory.update({ where: { id: existing.id }, data: { location } });
+        result.updated++;
+      } else {
+        await prisma.factory.create({ data: { name, location } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -105,6 +113,7 @@ export async function importFactories(prisma: PrismaClient, rows: RawRow[]): Pro
 }
 
 // ── Ekip Üyeleri ────────────────────────────────────────
+// Doğal anahtar: Ad Soyad (tam eşleşme; schema'da unique constraint yok).
 
 export async function importMembers(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -116,19 +125,19 @@ export async function importMembers(prisma: PrismaClient, rows: RawRow[]): Promi
       result.errors.push({ row: i + 1, message: "Ad Soyad boş bırakılamaz." });
       continue;
     }
-    // İsimle kontrol (tam eşleşme)
-    const exists = await prisma.teamMember.findFirst({ where: { name } });
-    if (exists) {
-      result.skipped++;
-      continue;
-    }
     const activeStr = str(r["Aktif"]).toLowerCase();
     const active = activeStr !== "hayır" && activeStr !== "hayir" && activeStr !== "no" && activeStr !== "false" && activeStr !== "0";
+    const title = str(r["Ünvan"]) || null;
+
     try {
-      await prisma.teamMember.create({
-        data: { name, title: str(r["Ünvan"]) || null, active },
-      });
-      result.inserted++;
+      const existing = await prisma.teamMember.findFirst({ where: { name } });
+      if (existing) {
+        await prisma.teamMember.update({ where: { id: existing.id }, data: { title, active } });
+        result.updated++;
+      } else {
+        await prisma.teamMember.create({ data: { name, title, active } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -138,6 +147,7 @@ export async function importMembers(prisma: PrismaClient, rows: RawRow[]): Promi
 }
 
 // ── Uygulamalar ─────────────────────────────────────────
+// Doğal anahtar: Uygulama Adı (schema'da @unique).
 
 export async function importApplications(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -149,16 +159,17 @@ export async function importApplications(prisma: PrismaClient, rows: RawRow[]): 
       result.errors.push({ row: i + 1, message: "Uygulama Adı boş bırakılamaz." });
       continue;
     }
-    const exists = await prisma.application.findUnique({ where: { name } });
-    if (exists) {
-      result.skipped++;
-      continue;
-    }
+    const vendor = str(r["Üretici"]) || null;
+
     try {
-      await prisma.application.create({
-        data: { name, vendor: str(r["Üretici"]) || null },
-      });
-      result.inserted++;
+      const existing = await prisma.application.findUnique({ where: { name } });
+      if (existing) {
+        await prisma.application.update({ where: { id: existing.id }, data: { vendor } });
+        result.updated++;
+      } else {
+        await prisma.application.create({ data: { name, vendor } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -168,6 +179,7 @@ export async function importApplications(prisma: PrismaClient, rows: RawRow[]): 
 }
 
 // ── Projeler ────────────────────────────────────────────
+// Doğal anahtar: Proje Kodu (schema'da @unique).
 
 export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -199,12 +211,15 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    // Aynı kod veya isimde proje var mı kontrolü
-    const exists = await prisma.project.findFirst({
-      where: { OR: [{ projectCode }, { name }] },
+    // Aynı isimde ama FARKLI kodlu başka bir proje varsa bu bir çakışmadır (güncelleme değil).
+    const nameConflict = await prisma.project.findFirst({
+      where: { name, NOT: { projectCode } },
     });
-    if (exists) {
-      result.skipped++;
+    if (nameConflict) {
+      result.errors.push({
+        row: i + 1,
+        message: `"${name}" isimli başka bir proje zaten var (kod: ${nameConflict.projectCode}).`,
+      });
       continue;
     }
 
@@ -228,23 +243,28 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
     const startDate = parseExcelDate(r["Başlangıç"]);
     const endDate = parseExcelDate(r["Bitiş"]);
 
+    const data = {
+      name,
+      factoryId,
+      probability: num(r["İhtimal(%)"]) || 50,
+      targetBudget: num(r["Hedef Bütçe"]),
+      startDate,
+      endDate,
+      riskLevel: risk || "MEDIUM",
+      priority: priority || "MEDIUM",
+      status: status || "PLANNED",
+      description: str(r["Açıklama"]) || null,
+    };
+
     try {
-      await prisma.project.create({
-        data: {
-          projectCode,
-          name,
-          factoryId,
-          probability: num(r["İhtimal(%)"]) || 50,
-          targetBudget: num(r["Hedef Bütçe"]),
-          startDate,
-          endDate,
-          riskLevel: risk || "MEDIUM",
-          priority: priority || "MEDIUM",
-          status: status || "PLANNED",
-          description: str(r["Açıklama"]) || null,
-        },
-      });
-      result.inserted++;
+      const existing = await prisma.project.findUnique({ where: { projectCode } });
+      if (existing) {
+        await prisma.project.update({ where: { id: existing.id }, data });
+        result.updated++;
+      } else {
+        await prisma.project.create({ data: { projectCode, ...data } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -254,6 +274,7 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
 }
 
 // ── Kaynak Planı (Assignments) ──────────────────────────
+// Doğal anahtar: (Proje, Ekip Üyesi, Yıl, Ay) — schema'da composite @@unique.
 
 export async function importAssignments(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -299,15 +320,18 @@ export async function importAssignments(prisma: PrismaClient, rows: RawRow[]): P
 
     const plannedDays = num(r["Planlanan Gün"]);
     const actualDays = num(r["Gerçekleşen Gün"]);
-    const resourcesStr = str(r["Kaynaklar"]);
+    const resources = str(r["Kaynaklar"]) || null;
 
     try {
+      const key = { projectId_memberId_year_month: { projectId, memberId, year, month } };
+      const existing = await prisma.assignment.findUnique({ where: key });
       await prisma.assignment.upsert({
-        where: { projectId_memberId_year_month: { projectId, memberId, year, month } },
-        create: { projectId, memberId, year, month, plannedDays, actualDays, resources: resourcesStr || null },
-        update: { plannedDays, actualDays, resources: resourcesStr || null },
+        where: key,
+        create: { projectId, memberId, year, month, plannedDays, actualDays, resources },
+        update: { plannedDays, actualDays, resources },
       });
-      result.inserted++;
+      if (existing) result.updated++;
+      else result.inserted++;
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -317,6 +341,7 @@ export async function importAssignments(prisma: PrismaClient, rows: RawRow[]): P
 }
 
 // ── Bütçe Kalemleri ─────────────────────────────────────
+// Doğal anahtar: (Proje, Kategori, Açıklama) — kompozit, DB constraint yok.
 
 export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -353,19 +378,17 @@ export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): P
       continue;
     }
 
+    const data = { quantity, unitPrice, amount: quantity * unitPrice, currency };
+
     try {
-      await prisma.budgetItem.create({
-        data: {
-          projectId,
-          category,
-          description,
-          quantity,
-          unitPrice,
-          amount: quantity * unitPrice,
-          currency,
-        },
-      });
-      result.inserted++;
+      const existing = await prisma.budgetItem.findFirst({ where: { projectId, category, description } });
+      if (existing) {
+        await prisma.budgetItem.update({ where: { id: existing.id }, data });
+        result.updated++;
+      } else {
+        await prisma.budgetItem.create({ data: { projectId, category, description, ...data } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -375,6 +398,7 @@ export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): P
 }
 
 // ── Aylık Finans ────────────────────────────────────────
+// Doğal anahtar: (Proje, Yıl, Ay) — schema'da composite @@unique.
 
 export async function importFinancials(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -415,12 +439,15 @@ export async function importFinancials(prisma: PrismaClient, rows: RawRow[]): Pr
     }
 
     try {
+      const key = { projectId_year_month: { projectId, year, month } };
+      const existing = await prisma.monthlyFinancial.findUnique({ where: key });
       await prisma.monthlyFinancial.upsert({
-        where: { projectId_year_month: { projectId, year, month } },
+        where: key,
         create: { projectId, year, month, expense, income, internalIncome, currency },
         update: { expense, income, internalIncome, currency },
       });
-      result.inserted++;
+      if (existing) result.updated++;
+      else result.inserted++;
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -430,6 +457,7 @@ export async function importFinancials(prisma: PrismaClient, rows: RawRow[]): Pr
 }
 
 // ── Lisanslar ───────────────────────────────────────────
+// Doğal anahtar: Lisans Key.
 
 export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -508,23 +536,33 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
 
     const renewalDate = parseExcelDate(r["Yenileme Tarihi"]);
 
+    const fields = {
+      applicationId,
+      description: str(r["Açıklama"]) || null,
+      totalInvestment: num(r["Yatırım Bedeli"]),
+      isSubscription,
+      subscriptionCost: num(r["Abonelik Ücreti"]),
+      currency,
+      paymentPeriod,
+      renewalDate,
+      status: statusStr,
+    };
+
     try {
-      await prisma.license.create({
-        data: {
-          applicationId,
-          factories: { connect: factoryIds.map((id) => ({ id })) },
-          licenseKey,
-          description: str(r["Açıklama"]) || null,
-          totalInvestment: num(r["Yatırım Bedeli"]),
-          isSubscription,
-          subscriptionCost: num(r["Abonelik Ücreti"]),
-          currency,
-          paymentPeriod,
-          renewalDate,
-          status: statusStr,
-        },
-      });
-      result.inserted++;
+      const existing = await prisma.license.findFirst({ where: { licenseKey } });
+      if (existing) {
+        // set: fabrika listesini tamamen değiştirir (eklemez/çoğaltmaz, mevcut atamaların üzerine yazar).
+        await prisma.license.update({
+          where: { id: existing.id },
+          data: { ...fields, factories: { set: factoryIds.map((id) => ({ id })) } },
+        });
+        result.updated++;
+      } else {
+        await prisma.license.create({
+          data: { ...fields, licenseKey, factories: { connect: factoryIds.map((id) => ({ id })) } },
+        });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }
@@ -534,6 +572,7 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
 }
 
 // ── Faturalar ───────────────────────────────────────────
+// Doğal anahtar: (Proje, Açıklama, Fatura Tarihi) — kompozit, DB constraint yok.
 
 export async function importInvoices(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -585,20 +624,23 @@ export async function importInvoices(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
+    const fields = {
+      amount,
+      currency,
+      status,
+      ebaNumber: str(r["EBA No"]) || null,
+      poNumber: str(r["PO No"]) || null,
+    };
+
     try {
-      await prisma.invoice.create({
-        data: {
-          projectId,
-          description,
-          amount,
-          currency,
-          issueDate,
-          status,
-          ebaNumber: str(r["EBA No"]) || null,
-          poNumber: str(r["PO No"]) || null,
-        },
-      });
-      result.inserted++;
+      const existing = await prisma.invoice.findFirst({ where: { projectId, description, issueDate } });
+      if (existing) {
+        await prisma.invoice.update({ where: { id: existing.id }, data: fields });
+        result.updated++;
+      } else {
+        await prisma.invoice.create({ data: { projectId, description, issueDate, ...fields } });
+        result.inserted++;
+      }
     } catch (e) {
       result.errors.push({ row: i + 1, message: (e as Error).message });
     }

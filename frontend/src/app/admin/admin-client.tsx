@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1075,6 +1076,15 @@ function BulkTab({ onError }: { onError: (e: string | null) => void }) {
                   </span>{" "}
                   eklendi
                 </div>
+                {bulkResult.updated > 0 && (
+                  <div className="flex items-center gap-2 rounded-md bg-blue-500/10 px-3 py-2 text-sm">
+                    <RefreshCw className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-blue-700 dark:text-blue-400">
+                      {bulkResult.updated}
+                    </span>{" "}
+                    güncellendi (zaten vardı)
+                  </div>
+                )}
                 {bulkResult.skipped > 0 && (
                   <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
