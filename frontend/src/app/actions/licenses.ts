@@ -7,7 +7,7 @@ import type { Currency, LicenseStatus, PaymentPeriod } from "@prisma/client";
 
 type LicenseInput = {
   applicationId: string;
-  factoryId: string;
+  factoryIds: string[];
   licenseKey: string;
   description: string | null;
   totalInvestment: number;
@@ -22,11 +22,14 @@ type LicenseInput = {
 export async function createLicense(input: LicenseInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
+  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
+  const { factoryIds, renewalDate, ...rest } = input;
   await prisma.license.create({
     data: {
-      ...input,
-      renewalDate: input.renewalDate ? new Date(input.renewalDate) : null,
+      ...rest,
+      renewalDate: renewalDate ? new Date(renewalDate) : null,
+      factories: { connect: factoryIds.map((id) => ({ id })) },
     },
   });
   revalidatePath("/licenses");
@@ -36,12 +39,15 @@ export async function createLicense(input: LicenseInput) {
 export async function updateLicense(id: string, input: LicenseInput) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
+  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
+  const { factoryIds, renewalDate, ...rest } = input;
   await prisma.license.update({
     where: { id },
     data: {
-      ...input,
-      renewalDate: input.renewalDate ? new Date(input.renewalDate) : null,
+      ...rest,
+      renewalDate: renewalDate ? new Date(renewalDate) : null,
+      factories: { set: factoryIds.map((id) => ({ id })) },
     },
   });
   revalidatePath("/licenses");

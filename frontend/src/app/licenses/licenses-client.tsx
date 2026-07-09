@@ -19,6 +19,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { createLicense, updateLicense, deleteLicense, createApplication } from "@/app/actions/licenses";
 import type { ApplicationDTO, FactoryDTO, LicenseDTO, RatesDTO } from "@/lib/types";
@@ -63,7 +64,7 @@ export function LicensesClient({
 
   const filtered = useMemo(
     () =>
-      licenses.filter((l) => factoryFilter === "all" || l.factoryId === factoryFilter),
+      licenses.filter((l) => factoryFilter === "all" || l.factoryIds.includes(factoryFilter)),
     [licenses, factoryFilter]
   );
 
@@ -161,7 +162,7 @@ export function LicensesClient({
                   <TD>
                     <code className="rounded bg-muted px-2 py-0.5 text-xs">{l.licenseKey}</code>
                   </TD>
-                  <TD className="text-muted-foreground">{l.factoryName}</TD>
+                  <TD className="text-muted-foreground">{l.factoryNames.join(", ")}</TD>
                   <TD className="text-right font-medium">
                     {formatMoney(l.totalInvestment, l.currency)}
                     {l.currency !== "TRY" && (
@@ -288,9 +289,16 @@ function LicenseForm({
   const [loading, setLoading] = useState(false);
   const [isSub, setIsSub] = useState(license?.isSubscription ?? false);
   const [newApp, setNewApp] = useState(false);
+  const [factoryIds, setFactoryIds] = useState<string[]>(license?.factoryIds ?? []);
+  const [factoryError, setFactoryError] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (factoryIds.length === 0) {
+      setFactoryError(true);
+      return;
+    }
+    setFactoryError(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
 
@@ -305,7 +313,7 @@ function LicenseForm({
 
     const input = {
       applicationId,
-      factoryId: String(fd.get("factoryId")),
+      factoryIds,
       licenseKey: String(fd.get("licenseKey")),
       description: (fd.get("description") as string) || null,
       totalInvestment: Number(fd.get("totalInvestment")),
@@ -357,14 +365,19 @@ function LicenseForm({
           )}
         </div>
         <div>
-          <Label>Fabrika</Label>
-          <Select name="factoryId" defaultValue={license?.factoryId} required>
-            {factories.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </Select>
+          <Label>Fabrika(lar)</Label>
+          <MultiSelect
+            options={factories.map((f) => ({ value: f.id, label: f.name }))}
+            selected={factoryIds}
+            onChange={(v) => {
+              setFactoryIds(v);
+              if (v.length > 0) setFactoryError(false);
+            }}
+            placeholder="Fabrika seçin"
+          />
+          {factoryError && (
+            <p className="mt-1 text-xs text-destructive">En az bir fabrika seçilmelidir.</p>
+          )}
         </div>
         <div>
           <Label>Lisans Key</Label>

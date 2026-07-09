@@ -10,7 +10,7 @@ export default async function LicensesPage() {
   const [rates, licenses, applications, factories] = await Promise.all([
     getRates(),
     prisma.license.findMany({
-      include: { application: true, factory: true },
+      include: { application: true, factories: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.application.findMany({ orderBy: { name: "asc" } }),
@@ -24,8 +24,8 @@ export default async function LicensesPage() {
       applicationId: l.applicationId,
       applicationName: l.application.name,
       vendor: l.application.vendor,
-      factoryId: l.factoryId,
-      factoryName: l.factory.name,
+      factoryIds: l.factories.map((f) => f.id),
+      factoryNames: l.factories.map((f) => f.name),
       licenseKey: l.licenseKey,
       description: l.description,
       totalInvestment: Number(l.totalInvestment),

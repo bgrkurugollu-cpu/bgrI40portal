@@ -207,8 +207,7 @@ model License {
   id               String        @id @default(cuid())
   applicationId    String
   application      Application   @relation(fields: [applicationId], references: [id])
-  factoryId        String
-  factory          Factory       @relation(fields: [factoryId], references: [id])
+  factories        Factory[]
   licenseKey       String
   description      String?
   totalInvestment  Decimal       @default(0) @db.Decimal(14, 2) // toplam yatırım bedeli

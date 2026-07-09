@@ -430,12 +430,28 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    const factoryName = str(r["Fabrika"]);
-    const factoryId = factoryMap.get(factoryName);
-    if (!factoryId) {
+    const factoryNames = str(r["Fabrika"])
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (factoryNames.length === 0) {
+      result.errors.push({ row: i + 1, message: "Fabrika boş bırakılamaz." });
+      continue;
+    }
+    const factoryIds: string[] = [];
+    let missingFactory: string | null = null;
+    for (const fn of factoryNames) {
+      const fid = factoryMap.get(fn);
+      if (!fid) {
+        missingFactory = fn;
+        break;
+      }
+      factoryIds.push(fid);
+    }
+    if (missingFactory) {
       result.errors.push({
         row: i + 1,
-        message: `"${factoryName}" isimli fabrika bulunamadı.`,
+        message: `"${missingFactory}" isimli fabrika bulunamadı.`,
       });
       continue;
     }
@@ -473,7 +489,7 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
       await prisma.license.create({
         data: {
           applicationId,
-          factoryId,
+          factories: { connect: factoryIds.map((id) => ({ id })) },
           licenseKey,
           description: str(r["Açıklama"]) || null,
           totalInvestment: num(r["Yatırım Bedeli"]),

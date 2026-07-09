@@ -180,7 +180,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
     examples: [
       [
         "Ignition",
-        "Gebze Fabrikası",
+        "Gebze Fabrikası, İzmir Fabrikası",
         "IGN-8X2K-9F4M-A1B2",
         "Ignition Platform - Unlimited tags",
         9500,
@@ -206,7 +206,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       ],
     ],
     notes:
-      "Abonelik: Evet / Hayır  |  Para Birimi: TRY / USD / EUR / GBP  |  Ödeme Periyodu: MONTHLY / QUARTERLY / YEARLY / ONE_TIME  |  Durum: ACTIVE / EXPIRING / EXPIRED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
+      "Fabrika: birden fazla fabrika için virgül veya noktalı virgülle ayırın (örn. \"Gebze Fabrikası, İzmir Fabrikası\")  |  Abonelik: Evet / Hayır  |  Para Birimi: TRY / USD / EUR / GBP  |  Ödeme Periyodu: MONTHLY / QUARTERLY / YEARLY / ONE_TIME  |  Durum: ACTIVE / EXPIRING / EXPIRED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
   },
   invoices: {
     headers: [

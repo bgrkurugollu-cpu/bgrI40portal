@@ -107,8 +107,8 @@ export type LicenseDTO = {
   applicationId: string;
   applicationName: string;
   vendor: string | null;
-  factoryId: string;
-  factoryName: string;
+  factoryIds: string[];
+  factoryNames: string[];
   licenseKey: string;
   description: string | null;
   totalInvestment: number;
