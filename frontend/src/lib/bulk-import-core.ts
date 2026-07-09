@@ -27,14 +27,37 @@ export type BulkResult = {
   errors: { row: number; message: string }[];
 };
 
-export type RawRow = Record<string, string | number | null>;
+export type RawRow = Record<string, string | number | Date | null>;
 
 function str(v: unknown): string {
-  return v != null ? String(v).trim() : "";
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  return String(v).trim();
 }
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Excel'den gelen tarih değerini Date'e çevirir. Hücre tarih olarak
+ * biçimlendirilmişse Excel bunu seri gün sayısı (örn. 45838) olarak verir;
+ * bunu doğrudan `new Date("45838")` ile ayrıştırmak yıl 45838 gibi anlamsız
+ * bir tarihe yol açar. Bu yüzden sayısal/Date/string tüm biçimleri ele alır.
+ */
+function parseExcelDate(v: unknown): Date | null {
+  if (v == null || v === "") return null;
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+  if (typeof v === "number") {
+    // Excel seri tarihi: gün sayısı, 1899-12-30 referans alınır (Unix epoch farkı 25569 gün).
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 const VALID_RISKS: RiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -202,8 +225,8 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    const startDate = str(r["Başlangıç"]);
-    const endDate = str(r["Bitiş"]);
+    const startDate = parseExcelDate(r["Başlangıç"]);
+    const endDate = parseExcelDate(r["Bitiş"]);
 
     try {
       await prisma.project.create({
@@ -213,8 +236,8 @@ export async function importProjects(prisma: PrismaClient, rows: RawRow[]): Prom
           factoryId,
           probability: num(r["İhtimal(%)"]) || 50,
           targetBudget: num(r["Hedef Bütçe"]),
-          startDate: startDate ? new Date(startDate) : null,
-          endDate: endDate ? new Date(endDate) : null,
+          startDate,
+          endDate,
           riskLevel: risk || "MEDIUM",
           priority: priority || "MEDIUM",
           status: status || "PLANNED",
@@ -483,7 +506,7 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    const renewalDateStr = str(r["Yenileme Tarihi"]);
+    const renewalDate = parseExcelDate(r["Yenileme Tarihi"]);
 
     try {
       await prisma.license.create({
@@ -497,7 +520,7 @@ export async function importLicenses(prisma: PrismaClient, rows: RawRow[]): Prom
           subscriptionCost: num(r["Abonelik Ücreti"]),
           currency,
           paymentPeriod,
-          renewalDate: renewalDateStr ? new Date(renewalDateStr) : null,
+          renewalDate,
           status: statusStr,
         },
       });
@@ -539,14 +562,13 @@ export async function importInvoices(prisma: PrismaClient, rows: RawRow[]): Prom
       continue;
     }
 
-    const issueDateStr = str(r["Fatura Tarihi"]);
-    if (!issueDateStr) {
+    if (r["Fatura Tarihi"] == null || str(r["Fatura Tarihi"]) === "") {
       result.errors.push({ row: i + 1, message: "Fatura Tarihi boş bırakılamaz." });
       continue;
     }
-    const issueDate = new Date(issueDateStr);
-    if (Number.isNaN(issueDate.getTime())) {
-      result.errors.push({ row: i + 1, message: `Geçersiz fatura tarihi: "${issueDateStr}"` });
+    const issueDate = parseExcelDate(r["Fatura Tarihi"]);
+    if (!issueDate) {
+      result.errors.push({ row: i + 1, message: `Geçersiz fatura tarihi: "${str(r["Fatura Tarihi"])}"` });
       continue;
     }
 

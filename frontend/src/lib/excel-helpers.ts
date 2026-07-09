@@ -267,7 +267,7 @@ export function downloadTemplate(type: ImportType) {
 
 // ── Excel Parse ─────────────────────────────────────────
 
-export type ParsedRow = Record<string, string | number | null>;
+export type ParsedRow = Record<string, string | number | Date | null>;
 
 /**
  * Ham AoA (array-of-arrays) sayfa verisini başlık + satır nesnelerine çevirir.
@@ -275,7 +275,7 @@ export type ParsedRow = Record<string, string | number | null>;
  * (tarayıcı `parseExcelFile` ve Node tarafı seed script'i bunu paylaşır).
  */
 export function parseSheetRows(
-  raw: (string | number | null)[][]
+  raw: (string | number | Date | null)[][]
 ): { headers: string[]; rows: ParsedRow[] } {
   if (raw.length < 2) {
     throw new Error("Dosyada en az başlık satırı ve bir veri satırı olmalıdır.");
@@ -315,10 +315,10 @@ export function parseExcelFile(
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
+        const wb = XLSX.read(data, { type: "array", cellDates: true });
         const sheetName = wb.SheetNames[0];
         const ws = wb.Sheets[sheetName];
-        const raw: (string | number | null)[][] = XLSX.utils.sheet_to_json(ws, {
+        const raw: (string | number | Date | null)[][] = XLSX.utils.sheet_to_json(ws, {
           header: 1,
           defval: null,
         });

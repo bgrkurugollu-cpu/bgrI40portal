@@ -42,9 +42,9 @@ const IMPORTERS: {
 
 /** Bir Excel dosyasını okuyup satır nesnelerine çevirir (ilk sayfa). */
 function readExcelRows(filePath: string): RawRow[] {
-  const wb = XLSX.readFile(filePath);
+  const wb = XLSX.readFile(filePath, { cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw: (string | number | null)[][] = XLSX.utils.sheet_to_json(ws, {
+  const raw: (string | number | Date | null)[][] = XLSX.utils.sheet_to_json(ws, {
     header: 1,
     defval: null,
   });
