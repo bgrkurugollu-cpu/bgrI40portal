@@ -61,11 +61,16 @@ export function LicensesClient({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LicenseDTO | null>(null);
   const [factoryFilter, setFactoryFilter] = useState("all");
+  const [applicationFilter, setApplicationFilter] = useState("all");
 
   const filtered = useMemo(
     () =>
-      licenses.filter((l) => factoryFilter === "all" || l.factoryIds.includes(factoryFilter)),
-    [licenses, factoryFilter]
+      licenses.filter(
+        (l) =>
+          (factoryFilter === "all" || l.factoryIds.includes(factoryFilter)) &&
+          (applicationFilter === "all" || l.applicationId === applicationFilter)
+      ),
+    [licenses, factoryFilter, applicationFilter]
   );
 
   const totalInvestment = filtered.reduce((s, l) => s + l.totalInvestmentTRY, 0);
@@ -96,6 +101,18 @@ export function LicensesClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Select
+            className="w-44"
+            value={applicationFilter}
+            onChange={(e) => setApplicationFilter(e.target.value)}
+          >
+            <option value="all">Tüm Uygulamalar</option>
+            {applications.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
           <Select
             className="w-44"
             value={factoryFilter}
