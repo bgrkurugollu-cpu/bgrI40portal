@@ -47,6 +47,7 @@ import {
   bulkImportBudgetItems,
   bulkImportFinancials,
   bulkImportLicenses,
+  bulkImportInvoices,
   type BulkResult,
 } from "@/app/actions/bulk-import";
 import {
@@ -811,6 +812,7 @@ const IMPORT_ACTIONS: Record<ImportType, (rows: ParsedRow[]) => Promise<BulkResu
   budgetItems: bulkImportBudgetItems,
   financials: bulkImportFinancials,
   licenses: bulkImportLicenses,
+  invoices: bulkImportInvoices,
 };
 
 const IMPORT_ORDER: ImportType[] = [
@@ -822,6 +824,7 @@ const IMPORT_ORDER: ImportType[] = [
   "budgetItems",
   "financials",
   "licenses",
+  "invoices",
 ];
 
 function BulkTab({ onError }: { onError: (e: string | null) => void }) {

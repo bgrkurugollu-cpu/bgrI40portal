@@ -1,7 +1,55 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as XLSX from "xlsx";
+import { parseSheetRows, type ImportType } from "../src/lib/excel-helpers";
+import {
+  importFactories,
+  importMembers,
+  importApplications,
+  importProjects,
+  importAssignments,
+  importBudgetItems,
+  importFinancials,
+  importLicenses,
+  importInvoices,
+  type BulkResult,
+  type RawRow,
+} from "../src/lib/bulk-import-core";
 
 const prisma = new PrismaClient();
+
+// seed-data klasöründeki Excel dosyaları bağımlılık sırasıyla içeri alınır.
+// Kullanıcı, admin panelindeki "şablon indir" ile ürettiği şablonları
+// doldurup bu klasöre {tip}.xlsx olarak koyar (repoya commit edilir).
+const SEED_DATA_DIR = path.join(__dirname, "seed-data");
+
+const IMPORTERS: {
+  type: ImportType;
+  run: (prisma: PrismaClient, rows: RawRow[]) => Promise<BulkResult>;
+}[] = [
+  { type: "factories", run: importFactories },
+  { type: "members", run: importMembers },
+  { type: "applications", run: importApplications },
+  { type: "projects", run: importProjects },
+  { type: "assignments", run: importAssignments },
+  { type: "budgetItems", run: importBudgetItems },
+  { type: "financials", run: importFinancials },
+  { type: "licenses", run: importLicenses },
+  { type: "invoices", run: importInvoices },
+];
+
+/** Bir Excel dosyasını okuyup satır nesnelerine çevirir (ilk sayfa). */
+function readExcelRows(filePath: string): RawRow[] {
+  const wb = XLSX.readFile(filePath);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw: (string | number | null)[][] = XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    defval: null,
+  });
+  return parseSheetRows(raw).rows as RawRow[];
+}
 
 async function main() {
   const userCount = await prisma.user.count();
@@ -10,7 +58,7 @@ async function main() {
     return;
   }
 
-  // Admin kullanıcı
+  // Admin kullanıcı (Excel şablonu yok; giriş için gerekli).
   const passwordHash = await bcrypt.hash("admin123", 10);
   await prisma.user.create({
     data: {
@@ -20,254 +68,49 @@ async function main() {
       role: "ADMIN",
     },
   });
+  console.log("Admin kullanıcı oluşturuldu: admin@bgr.local / admin123");
 
-  // Fabrikalar
-  const [f1, f2, f3] = await Promise.all(
-    [
-      { name: "Gebze Fabrikası", location: "Gebze / Kocaeli" },
-      { name: "İzmir Fabrikası", location: "Aliağa / İzmir" },
-      { name: "Bursa Fabrikası", location: "Nilüfer / Bursa" },
-    ].map((d) => prisma.factory.create({ data: d }))
-  );
+  if (!fs.existsSync(SEED_DATA_DIR)) {
+    console.warn(
+      `⚠️  seed-data klasörü bulunamadı (${SEED_DATA_DIR}). Sadece admin kullanıcı oluşturuldu.`
+    );
+    return;
+  }
 
-  // 6 kişilik Endüstri 4.0 ekibi
-  const memberNames: [string, string][] = [
-    ["Ahmet Yılmaz", "Takım Lideri"],
-    ["Elif Demir", "MES Uzmanı"],
-    ["Mehmet Kaya", "SCADA Mühendisi"],
-    ["Zeynep Arslan", "Veri Mühendisi"],
-    ["Can Öztürk", "Otomasyon Mühendisi"],
-    ["Selin Çelik", "Yazılım Geliştirici"],
-  ];
-  const members = await Promise.all(
-    memberNames.map(([name, title]) =>
-      prisma.teamMember.create({ data: { name, title } })
-    )
-  );
+  let hadErrors = false;
 
-  // Projeler
-  const p1 = await prisma.project.create({
-    data: {
-      projectCode: "PRJ-101",
-      name: "MES Entegrasyonu",
-      factoryId: f1.id,
-      probability: 90,
-      targetBudget: 2500000,
-      startDate: new Date("2026-01-15"),
-      endDate: new Date("2026-11-30"),
-      riskLevel: "MEDIUM",
-      priority: "HIGH",
-      status: "ACTIVE",
-      description: "Üretim yürütme sistemi (MES) kurulumu ve ERP entegrasyonu.",
-    },
-  });
-  const p2 = await prisma.project.create({
-    data: {
-      projectCode: "PRJ-102",
-      name: "Enerji İzleme Sistemi",
-      factoryId: f2.id,
-      probability: 70,
-      targetBudget: 850000,
-      startDate: new Date("2026-03-01"),
-      endDate: new Date("2026-09-30"),
-      riskLevel: "LOW",
-      priority: "MEDIUM",
-      status: "ACTIVE",
-      description: "Fabrika geneli enerji tüketimi izleme ve raporlama altyapısı.",
-    },
-  });
-  const p3 = await prisma.project.create({
-    data: {
-      projectCode: "PRJ-103",
-      name: "Kestirimci Bakım Pilot",
-      factoryId: f3.id,
-      probability: 50,
-      targetBudget: 1200000,
-      startDate: new Date("2026-06-01"),
-      endDate: new Date("2027-02-28"),
-      riskLevel: "HIGH",
-      priority: "CRITICAL",
-      status: "PLANNED",
-      description: "Kritik ekipmanlarda titreşim/sıcaklık verisiyle kestirimci bakım pilotu.",
-    },
-  });
-
-  // Proje logları
-  await prisma.projectLog.createMany({
-    data: [
-      { projectId: p1.id, field: "oluşturma", newValue: "Proje oluşturuldu" },
-      { projectId: p1.id, field: "probability", oldValue: "75", newValue: "90" },
-      { projectId: p2.id, field: "oluşturma", newValue: "Proje oluşturuldu" },
-      { projectId: p3.id, field: "oluşturma", newValue: "Proje oluşturuldu" },
-      { projectId: p3.id, field: "riskLevel", oldValue: "MEDIUM", newValue: "HIGH" },
-    ],
-  });
-
-  // Atamalar: 2026 yılı için örnek plan/gerçekleşen adam-gün
-  const assignments: {
-    projectId: string;
-    memberId: string;
-    year: number;
-    month: number;
-    plannedDays: number;
-    actualDays: number;
-    resources?: string;
-  }[] = [];
-  const plan = (
-    projectId: string,
-    memberIdx: number,
-    months: number[],
-    planned: number,
-    actualUntil: number
-  ) => {
-    for (const m of months) {
-      assignments.push({
-        projectId,
-        memberId: members[memberIdx].id,
-        year: 2026,
-        month: m,
-        plannedDays: planned,
-        actualDays: m <= actualUntil ? Math.round(planned * (0.7 + Math.random() * 0.5)) : 0,
-        resources: memberIdx % 2 === 0 ? "Laptop, Ignition Dev" : undefined,
-      });
+  for (const { type, run } of IMPORTERS) {
+    const filePath = path.join(SEED_DATA_DIR, `${type}.xlsx`);
+    if (!fs.existsSync(filePath)) {
+      console.warn(`⚠️  ${type}.xlsx bulunamadı, atlanıyor.`);
+      continue;
     }
-  };
-  plan(p1.id, 0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 8, 6);
-  plan(p1.id, 1, [2, 3, 4, 5, 6, 7, 8, 9], 15, 6);
-  plan(p1.id, 5, [3, 4, 5, 6, 7, 8], 12, 6);
-  plan(p2.id, 2, [3, 4, 5, 6, 7, 8, 9], 10, 6);
-  plan(p2.id, 3, [4, 5, 6, 7, 8], 12, 6);
-  plan(p3.id, 3, [6, 7, 8, 9, 10, 11, 12], 8, 6);
-  plan(p3.id, 4, [6, 7, 8, 9, 10, 11, 12], 15, 6);
-  await prisma.assignment.createMany({ data: assignments });
 
-  // Bütçe kalemleri
-  await prisma.budgetItem.createMany({
-    data: [
-      { projectId: p1.id, category: "Yazılım", description: "MES lisansları", quantity: 1, unitPrice: 18000, amount: 18000, currency: "USD" },
-      { projectId: p1.id, category: "Donanım", description: "Endüstriyel PC ve sunucular", quantity: 6, unitPrice: 85000, amount: 510000, currency: "TRY" },
-      { projectId: p1.id, category: "İşçilik", description: "Danışmanlık ve devreye alma", quantity: 120, unitPrice: 6500, amount: 780000, currency: "TRY" },
-      { projectId: p2.id, category: "Donanım", description: "Enerji analizörleri", quantity: 40, unitPrice: 9500, amount: 380000, currency: "TRY" },
-      { projectId: p2.id, category: "Yazılım", description: "İzleme platformu lisansı", quantity: 1, unitPrice: 5000, amount: 5000, currency: "EUR" },
-      { projectId: p3.id, category: "Donanım", description: "Titreşim sensörleri", quantity: 60, unitPrice: 7000, amount: 420000, currency: "TRY" },
-      { projectId: p3.id, category: "Yazılım", description: "ML platformu aboneliği", quantity: 1, unitPrice: 300000, amount: 300000, currency: "TRY" },
-    ],
-  });
+    let rows: RawRow[];
+    try {
+      rows = readExcelRows(filePath);
+    } catch (e) {
+      console.error(`✗ ${type}.xlsx okunamadı: ${(e as Error).message}`);
+      hadErrors = true;
+      continue;
+    }
 
-  // Aylık finansal grid (2026). Kural: gelir = gider * 1.05.
-  const MARKUP = 1.05;
-  const fin: {
-    projectId: string;
-    year: number;
-    month: number;
-    income: number;
-    expense: number;
-    internalIncome: number;
-    currency: "TRY" | "USD" | "EUR" | "GBP";
-  }[] = [];
-  const finRow = (
-    projectId: string,
-    month: number,
-    expense: number,
-    internalIncome: number,
-    currency: "TRY" | "USD" | "EUR" | "GBP" = "TRY"
-  ) =>
-    fin.push({
-      projectId,
-      year: 2026,
-      month,
-      expense,
-      income: Math.round(expense * MARKUP * 100) / 100,
-      internalIncome,
-      currency,
-    });
-  finRow(p1.id, 1, 120000, 40000);
-  finRow(p1.id, 3, 210000, 40000);
-  finRow(p1.id, 6, 180000, 40000);
-  finRow(p1.id, 9, 150000, 40000);
-  finRow(p1.id, 11, 90000, 40000);
-  finRow(p2.id, 3, 150000, 20000);
-  finRow(p2.id, 5, 4000, 20000, "USD"); // dolar bazlı örnek gider
-  finRow(p2.id, 8, 60000, 20000);
-  finRow(p3.id, 6, 200000, 30000);
-  finRow(p3.id, 9, 5000, 30000, "EUR"); // euro bazlı örnek gider
-  finRow(p3.id, 12, 120000, 30000);
-  await prisma.monthlyFinancial.createMany({ data: fin });
+    const result = await run(prisma, rows);
+    console.log(
+      `• ${type}: ${result.inserted} eklendi, ${result.skipped} atlandı, ${result.errors.length} hata`
+    );
+    for (const err of result.errors) {
+      console.error(`    satır ${err.row}: ${err.message}`);
+    }
+    if (result.errors.length > 0) hadErrors = true;
+  }
 
-  // Faturalar
-  await prisma.invoice.createMany({
-    data: [
-      { projectId: p1.id, description: "MES Faz 1 - Avans", amount: 500000, currency: "TRY", issueDate: new Date("2026-03-15"), status: "PAID" },
-      { projectId: p1.id, description: "MES Faz 1 - Ara hakediş", amount: 750000, currency: "TRY", issueDate: new Date("2026-06-15"), status: "ISSUED" },
-      { projectId: p1.id, description: "MES Faz 1 - Hakediş 2", amount: 600000, currency: "TRY", issueDate: new Date("2026-09-15"), status: "PLANNED" },
-      { projectId: p2.id, description: "Enerji izleme - Kurulum", amount: 8000, currency: "USD", issueDate: new Date("2026-05-20"), status: "PAID" },
-      { projectId: p2.id, description: "Enerji izleme - Kabul", amount: 350000, currency: "TRY", issueDate: new Date("2026-08-20"), status: "PLANNED" },
-      { projectId: p3.id, description: "Kestirimci bakım - Pilot başlangıç", amount: 400000, currency: "TRY", issueDate: new Date("2026-09-30"), status: "PLANNED" },
-    ],
-  });
+  if (hadErrors) {
+    console.error("\nSeed hatalarla tamamlandı. Lütfen Excel dosyalarını kontrol edin.");
+    process.exit(1);
+  }
 
-  // Uygulamalar ve lisanslar
-  const [ignition, aveva, msSql] = await Promise.all(
-    [
-      { name: "Ignition", vendor: "Inductive Automation" },
-      { name: "AVEVA System Platform", vendor: "AVEVA" },
-      { name: "SQL Server", vendor: "Microsoft" },
-    ].map((d) => prisma.application.create({ data: d }))
-  );
-  await prisma.license.createMany({
-    data: [
-      {
-        applicationId: ignition.id,
-        factoryId: f1.id,
-        licenseKey: "IGN-8X2K-9F4M-A1B2",
-        description: "Ignition Platform - Unlimited tags, Gebze MES sunucusu",
-        totalInvestment: 9500,
-        isSubscription: true,
-        subscriptionCost: 1900,
-        currency: "USD",
-        paymentPeriod: "YEARLY",
-        renewalDate: new Date("2026-09-01"),
-        status: "ACTIVE",
-      },
-      {
-        applicationId: ignition.id,
-        factoryId: f2.id,
-        licenseKey: "IGN-3C7D-1E5F-G6H7",
-        description: "Ignition Edge - Enerji izleme gateway",
-        totalInvestment: 120000,
-        isSubscription: true,
-        subscriptionCost: 25000,
-        paymentPeriod: "YEARLY",
-        renewalDate: new Date("2026-08-10"),
-        status: "EXPIRING",
-      },
-      {
-        applicationId: aveva.id,
-        factoryId: f3.id,
-        licenseKey: "AVV-PLT-2024-XY99",
-        description: "System Platform 2023 - 25K IO",
-        totalInvestment: 16000,
-        isSubscription: false,
-        currency: "EUR",
-        paymentPeriod: "ONE_TIME",
-        status: "ACTIVE",
-      },
-      {
-        applicationId: msSql.id,
-        factoryId: f1.id,
-        licenseKey: "MSSQL-STD-2022-4CORE",
-        description: "SQL Server 2022 Standard - MES veritabanı",
-        totalInvestment: 180000,
-        isSubscription: true,
-        subscriptionCost: 15000,
-        paymentPeriod: "MONTHLY",
-        renewalDate: new Date("2026-07-25"),
-        status: "ACTIVE",
-      },
-    ],
-  });
-
-  console.log("Seed tamamlandı. Giriş: admin@bgr.local / admin123");
+  console.log("\nSeed tamamlandı. Giriş: admin@bgr.local / admin123");
 }
 
 main()

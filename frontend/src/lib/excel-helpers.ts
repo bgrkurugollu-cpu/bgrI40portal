@@ -14,7 +14,8 @@ export type ImportType =
   | "assignments"
   | "budgetItems"
   | "financials"
-  | "licenses";
+  | "licenses"
+  | "invoices";
 
 export const IMPORT_TYPE_LABELS: Record<ImportType, string> = {
   factories: "Fabrikalar",
@@ -25,6 +26,7 @@ export const IMPORT_TYPE_LABELS: Record<ImportType, string> = {
   budgetItems: "Bütçe Kalemleri",
   financials: "Aylık Finans",
   licenses: "Lisanslar",
+  invoices: "Faturalar",
 };
 
 // ── Şablon tanımları ────────────────────────────────────
@@ -206,6 +208,25 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
     notes:
       "Abonelik: Evet / Hayır  |  Para Birimi: TRY / USD / EUR / GBP  |  Ödeme Periyodu: MONTHLY / QUARTERLY / YEARLY / ONE_TIME  |  Durum: ACTIVE / EXPIRING / EXPIRED / CANCELLED  |  Tarih formatı: YYYY-MM-DD",
   },
+  invoices: {
+    headers: [
+      "Proje Kodu",
+      "Proje",
+      "Açıklama",
+      "Tutar",
+      "Para Birimi",
+      "Fatura Tarihi",
+      "Durum",
+      "EBA No",
+      "PO No",
+    ],
+    examples: [
+      ["PRJ-101", "MES Entegrasyonu", "MES Faz 1 - Avans", 500000, "TRY", "2026-03-15", "PAID", "EBA-2026-001", "PO-1001"],
+      ["PRJ-102", "Enerji İzleme", "Enerji izleme - Kurulum", 8000, "USD", "2026-05-20", "ISSUED", "", ""],
+    ],
+    notes:
+      "Para Birimi: TRY / USD / EUR / GBP  |  Durum: PLANNED / ISSUED / PAID / OVERDUE  |  Tarih formatı: YYYY-MM-DD  |  EBA No ve PO No opsiyoneldir",
+  },
 };
 
 // ── Şablon İndirme ──────────────────────────────────────
@@ -248,6 +269,44 @@ export function downloadTemplate(type: ImportType) {
 
 export type ParsedRow = Record<string, string | number | null>;
 
+/**
+ * Ham AoA (array-of-arrays) sayfa verisini başlık + satır nesnelerine çevirir.
+ * ⚠️ ile başlayan not satırını, boş satırları atlar. Ortamdan bağımsızdır
+ * (tarayıcı `parseExcelFile` ve Node tarafı seed script'i bunu paylaşır).
+ */
+export function parseSheetRows(
+  raw: (string | number | null)[][]
+): { headers: string[]; rows: ParsedRow[] } {
+  if (raw.length < 2) {
+    throw new Error("Dosyada en az başlık satırı ve bir veri satırı olmalıdır.");
+  }
+
+  // Not satırını atla (⚠️ ile başlıyorsa)
+  let startIdx = 0;
+  const firstCell = String(raw[0]?.[0] ?? "");
+  if (firstCell.startsWith("⚠️") || firstCell.startsWith("⚠")) {
+    startIdx = 1;
+  }
+
+  const headers = (raw[startIdx] ?? []).map((h) => String(h ?? "").trim());
+  const rows: ParsedRow[] = [];
+
+  for (let i = startIdx + 1; i < raw.length; i++) {
+    const rowArr = raw[i];
+    if (!rowArr || rowArr.every((c) => c == null || String(c).trim() === ""))
+      continue; // boş satırı atla
+
+    const obj: ParsedRow = {};
+    for (let j = 0; j < headers.length; j++) {
+      const val = rowArr[j];
+      obj[headers[j]] = val != null ? val : null;
+    }
+    rows.push(obj);
+  }
+
+  return { headers, rows };
+}
+
 export function parseExcelFile(
   file: File
 ): Promise<{ headers: string[]; rows: ParsedRow[] }> {
@@ -264,35 +323,7 @@ export function parseExcelFile(
           defval: null,
         });
 
-        if (raw.length < 2) {
-          reject(new Error("Dosyada en az başlık satırı ve bir veri satırı olmalıdır."));
-          return;
-        }
-
-        // Not satırını atla (⚠️ ile başlıyorsa)
-        let startIdx = 0;
-        const firstCell = String(raw[0]?.[0] ?? "");
-        if (firstCell.startsWith("⚠️") || firstCell.startsWith("⚠")) {
-          startIdx = 1;
-        }
-
-        const headers = (raw[startIdx] ?? []).map((h) => String(h ?? "").trim());
-        const rows: ParsedRow[] = [];
-
-        for (let i = startIdx + 1; i < raw.length; i++) {
-          const rowArr = raw[i];
-          if (!rowArr || rowArr.every((c) => c == null || String(c).trim() === ""))
-            continue; // boş satırı atla
-
-          const obj: ParsedRow = {};
-          for (let j = 0; j < headers.length; j++) {
-            const val = rowArr[j];
-            obj[headers[j]] = val != null ? val : null;
-          }
-          rows.push(obj);
-        }
-
-        resolve({ headers, rows });
+        resolve(parseSheetRows(raw));
       } catch (err) {
         reject(new Error(`Excel dosyası okunamadı: ${(err as Error).message}`));
       }

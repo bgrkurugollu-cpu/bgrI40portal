@@ -57,7 +57,7 @@ export function ProjectForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="projectCode">Proje Kodu</Label>
-          <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="PRJ-001" required />
+          <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="Serbest kod (örn. PRJ-101, Demand, D-12)" required />
         </div>
         <div>
           <Label htmlFor="name">Proje Adı</Label>
