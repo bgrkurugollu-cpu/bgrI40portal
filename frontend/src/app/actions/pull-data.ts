@@ -74,7 +74,12 @@ export type PullSummary = {
 
 /** Bir Excel dosyasını okuyup satır nesnelerine çevirir. Boş şablon → boş dizi. */
 function readExcelRows(filePath: string): RawRow[] {
-  const wb = XLSX.readFile(filePath, { cellDates: true });
+  // NOT: XLSX.readFile yerine dosyayı Node fs ile buffer olarak okuyup XLSX.read
+  // kullanıyoruz. XLSX.readFile, SheetJS'in dahili "fs" erişimine dayanır; Next.js
+  // server action'ları webpack ile paketlendiğinde bu erişim kaybolur ve
+  // "Cannot access file ..." hatası fırlar. Buffer üzerinden okuma bunu baypas eder.
+  const buf = fs.readFileSync(filePath);
+  const wb = XLSX.read(buf, { type: "buffer", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const raw: (string | number | Date | null)[][] = XLSX.utils.sheet_to_json(ws, {
     header: 1,
