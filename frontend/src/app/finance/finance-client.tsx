@@ -13,6 +13,9 @@ import {
   ResponsiveContainer,
   Legend,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { TrendingUp, TrendingDown, Wallet, Receipt, RefreshCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -72,6 +75,13 @@ export function FinanceClient({
   );
   const ciro = totals.income + totals.internal;
   const karlilik = ciro - totals.expense;
+
+  // Pasta grafik: toplam gider ve iç kaynak gelirinin payı (birlikte "toplam" oluşturur).
+  const pieData = [
+    { name: "Toplam Gider", value: Math.round(totals.expense), color: "var(--destructive)" },
+    { name: "İç Kaynak Geliri", value: Math.round(totals.internal), color: "var(--primary)" },
+  ];
+  const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
 
   const chartData = useMemo(
     () =>
@@ -172,49 +182,120 @@ export function FinanceClient({
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Aylık Nakit Akışı (TL karşılığı)</CardTitle>
-          <CardDescription>Gelir, gider, iç kaynak geliri ve net akış</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  stroke="var(--muted-foreground)"
-                  tickFormatter={(v) =>
-                    new Intl.NumberFormat("tr-TR", {
-                      notation: "compact",
-                      compactDisplay: "short",
-                      maximumFractionDigits: 1,
-                    }).format(v) + " ₺"
-                  }
-                  width={90}
-                />
-                <Tooltip
-                  formatter={(v) => formatMoney(Number(v))}
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="Gelir" fill="var(--success)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Gider" fill="var(--destructive)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="İç Kaynak" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="Ciro" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="Karlılık" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 3 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Aylık Nakit Akışı (TL karşılığı)</CardTitle>
+            <CardDescription>Gelir, gider, iç kaynak geliri ve net akış</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    stroke="var(--muted-foreground)"
+                    tickFormatter={(v) =>
+                      new Intl.NumberFormat("tr-TR", {
+                        notation: "compact",
+                        compactDisplay: "short",
+                        maximumFractionDigits: 1,
+                      }).format(v) + " ₺"
+                    }
+                    width={90}
+                  />
+                  <Tooltip
+                    formatter={(v) => formatMoney(Number(v))}
+                    contentStyle={{
+                      backgroundColor: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      color: "var(--foreground)",
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="Gelir" fill="var(--success)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Gider" fill="var(--destructive)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="İç Kaynak" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="Ciro" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Karlılık" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 3 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Gelir Dağılımı (Pay)</CardTitle>
+            <CardDescription>
+              Toplam gider ve iç kaynak gelirinin payı — ikisi birlikte toplamı oluşturur (TL)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={55}
+                    outerRadius={95}
+                    paddingAngle={2}
+                    label={({ percent }) => `%${((percent ?? 0) * 100).toFixed(0)}`}
+                    labelLine={false}
+                  >
+                    {pieData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} stroke="var(--card)" />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v, n) => [formatMoney(Number(v)), n]}
+                    contentStyle={{
+                      backgroundColor: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      color: "var(--foreground)",
+                    }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-2 space-y-1 border-t pt-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Toplam Gider</span>
+                <span className="font-medium tabular-nums">
+                  {formatMoney(totals.expense)}
+                  {pieTotal > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (%{((totals.expense / pieTotal) * 100).toFixed(0)})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">İç Kaynak Geliri</span>
+                <span className="font-medium tabular-nums">
+                  {formatMoney(totals.internal)}
+                  {pieTotal > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (%{((totals.internal / pieTotal) * 100).toFixed(0)})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t pt-1 font-semibold">
+                <span>Toplam</span>
+                <span className="tabular-nums">{formatMoney(pieTotal)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

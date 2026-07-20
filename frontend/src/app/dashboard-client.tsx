@@ -20,7 +20,6 @@ import {
   Users,
   KeyRound,
   AlertTriangle,
-  ArrowUpRight,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -36,8 +35,6 @@ import {
   INVOICE_STATUS_LABELS,
   MONTHS_TR,
   MONTHS_TR_SHORT,
-  RISK_LABELS,
-  STATUS_LABELS,
 } from "@/lib/utils";
 
 type Stats = {
@@ -57,7 +54,6 @@ export function DashboardClient({
   financialsByProject,
   effort,
   upcomingInvoices,
-  projects,
 }: {
   year: number;
   stats: Stats;
@@ -85,16 +81,6 @@ export function DashboardClient({
     status: string;
     ebaNumber: string | null;
     poNumber: string | null;
-  }[];
-  projects: {
-    id: string;
-    projectCode: string;
-    name: string;
-    factoryName: string;
-    status: string;
-    riskLevel: string;
-    probability: number;
-    targetBudget: number;
   }[];
 }) {
   const finData = monthly.map((m) => ({
@@ -316,68 +302,7 @@ export function DashboardClient({
         </Card>
       </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <motion.div variants={item}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Projeler</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Kodu</TH>
-                    <TH>Proje</TH>
-                    <TH>Fabrika</TH>
-                    <TH>Risk</TH>
-                    <TH>Durum</TH>
-                    <TH className="text-right">Bütçe</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {projects.map((p) => (
-                    <TR key={p.id}>
-                      <TD className="font-mono text-xs font-bold text-muted-foreground">
-                        {p.projectCode}
-                      </TD>
-                      <TD>
-                        <Link
-                          href={`/projects/${p.id}`}
-                          className="group inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                        >
-                          {p.name}
-                          <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-                        </Link>
-                      </TD>
-                      <TD className="text-muted-foreground">{p.factoryName}</TD>
-                      <TD>
-                        <Badge
-                          tone={
-                            p.riskLevel === "LOW"
-                              ? "success"
-                              : p.riskLevel === "MEDIUM"
-                                ? "warning"
-                                : "destructive"
-                          }
-                        >
-                          {RISK_LABELS[p.riskLevel]}
-                        </Badge>
-                      </TD>
-                      <TD>
-                        <Badge tone={p.status === "ACTIVE" ? "success" : "muted"}>
-                          {STATUS_LABELS[p.status]}
-                        </Badge>
-                      </TD>
-                      <TD className="text-right font-medium">{formatMoney(p.targetBudget)}</TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={item}>
+      <motion.div variants={item}>
           <Card>
             <CardHeader>
               <CardTitle>Yaklaşan Faturalar</CardTitle>
@@ -441,7 +366,6 @@ export function DashboardClient({
             </CardContent>
           </Card>
         </motion.div>
-      </div>
     </motion.div>
   );
 }

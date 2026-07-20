@@ -130,6 +130,18 @@ export async function updateProject(id: string, input: ProjectInput) {
   revalidatePath("/");
 }
 
+export async function deleteProject(id: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+  // Tüm ilişkili kayıtlar (atama, bütçe, finans, fatura, log) şemada
+  // onDelete: Cascade olduğundan otomatik silinir.
+  await prisma.project.delete({ where: { id } });
+  revalidatePath("/projects");
+  revalidatePath("/");
+  revalidatePath("/resources");
+  revalidatePath("/finance");
+}
+
 export async function upsertAssignment(input: {
   projectId: string;
   memberId: string;

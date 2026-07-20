@@ -98,16 +98,6 @@ export default async function DashboardPage() {
         ebaNumber: i.ebaNumber,
         poNumber: i.poNumber,
       }))}
-      projects={projects.map((p) => ({
-        id: p.id,
-        projectCode: p.projectCode,
-        name: p.name,
-        factoryName: p.factories.map((f) => f.name).join(", "),
-        status: p.status,
-        riskLevel: p.riskLevel,
-        probability: p.probability,
-        targetBudget: Number(p.targetBudget),
-      }))}
     />
   );
 }

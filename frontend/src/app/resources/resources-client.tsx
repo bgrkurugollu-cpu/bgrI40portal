@@ -19,12 +19,34 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { useSort, SortTH, type SortValue } from "@/components/ui/sortable";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
 import { cn, MONTHS_TR, MONTHS_TR_SHORT } from "@/lib/utils";
 import { workingDaysByMonth } from "@/lib/workdays";
 import { upsertAssignment, deleteAssignment } from "@/app/actions/projects";
 
 type Row = AssignmentDTO & { projectName: string };
+
+function assignmentValue(a: Row, key: string): SortValue {
+  switch (key) {
+    case "code":
+      return a.projectCode;
+    case "project":
+      return a.projectName;
+    case "member":
+      return a.memberName;
+    case "period":
+      return a.year * 100 + a.month;
+    case "planned":
+      return a.plannedDays;
+    case "actual":
+      return a.actualDays;
+    case "resources":
+      return a.resources;
+    default:
+      return null;
+  }
+}
 
 type EditDraft = { plannedDays: string; actualDays: string; resources: string };
 type AddDraft = {
@@ -121,7 +143,12 @@ export function ResourcesClient({
     return "bg-success/10";
   };
 
-  // ── Atama Detayları: aç/kapa + satır içi düzenleme + ekle/sil ──
+  // ── Atama Detayları: sıralama + aç/kapa + satır içi düzenleme + ekle/sil ──
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useSort(
+    filtered,
+    assignmentValue,
+    { key: "member", dir: "asc" }
+  );
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<EditDraft>({ plannedDays: "", actualDays: "", resources: "" });
@@ -450,18 +477,18 @@ export function ResourcesClient({
                 <Table>
                   <THead>
                     <TR>
-                      <TH>Proje Kodu</TH>
-                      <TH>Proje</TH>
-                      <TH>Üye</TH>
-                      <TH>Dönem</TH>
-                      <TH className="text-right">Plan</TH>
-                      <TH className="text-right">Gerçekleşen</TH>
-                      <TH>Kaynaklar</TH>
+                      <SortTH label="Proje Kodu" col="code" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTH label="Proje" col="project" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTH label="Üye" col="member" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTH label="Dönem" col="period" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTH label="Plan" col="planned" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" className="text-right" />
+                      <SortTH label="Gerçekleşen" col="actual" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" className="text-right" />
+                      <SortTH label="Kaynaklar" col="resources" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                       <TH className="text-right">İşlem</TH>
                     </TR>
                   </THead>
                   <TBody>
-                    {filtered.map((a) => {
+                    {sortedRows.map((a) => {
                       const editing = editingId === a.id;
                       const busy = busyId === a.id;
                       return (

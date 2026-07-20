@@ -3,13 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Pencil, ArrowUpRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowUpRight, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { useSort, SortTH, type SortValue } from "@/components/ui/sortable";
 import { Card } from "@/components/ui/card";
 import { ProjectForm } from "./project-form";
+import { deleteProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
 import { formatMoney, formatDate, RISK_LABELS, STATUS_LABELS } from "@/lib/utils";
 
@@ -26,6 +29,34 @@ const statusTone = (s: string) =>
           ? "warning"
           : "destructive";
 
+// Risk/Öncelik için mantıksal sıralama (alfabetik değil).
+const LEVEL_RANK: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+
+function projectValue(p: ProjectDTO, key: string): SortValue {
+  switch (key) {
+    case "code":
+      return p.projectCode;
+    case "name":
+      return p.name;
+    case "factory":
+      return p.factoryNames.join(", ");
+    case "probability":
+      return p.probability;
+    case "budget":
+      return p.targetBudget;
+    case "timeline":
+      return p.startDate;
+    case "risk":
+      return LEVEL_RANK[p.riskLevel] ?? 0;
+    case "priority":
+      return LEVEL_RANK[p.priority] ?? 0;
+    case "status":
+      return STATUS_LABELS[p.status] ?? p.status;
+    default:
+      return null;
+  }
+}
+
 export function ProjectsClient({
   projects,
   factories,
@@ -35,6 +66,37 @@ export function ProjectsClient({
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ProjectDTO | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLocaleLowerCase("tr");
+  const filtered = q
+    ? projects.filter(
+        (p) =>
+          p.projectCode.toLocaleLowerCase("tr").includes(q) ||
+          p.name.toLocaleLowerCase("tr").includes(q) ||
+          p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
+      )
+    : projects;
+
+  const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, projectValue);
+
+  async function onDelete(p: ProjectDTO) {
+    if (
+      !window.confirm(
+        `"${p.name}" projesini ve tüm ilişkili verilerini (atama, bütçe, finans, fatura) kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+      )
+    )
+      return;
+    setDeletingId(p.id);
+    try {
+      await deleteProject(p.id);
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <motion.div
@@ -54,24 +116,34 @@ export function ProjectsClient({
         </Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Proje kodu, isim veya fabrika ara…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
       <Card>
         <Table>
           <THead>
             <TR>
-              <TH>Kodu</TH>
-              <TH>Proje İsmi</TH>
-              <TH>Fabrika</TH>
-              <TH>İhtimal</TH>
-              <TH>Hedef Bütçe</TH>
-              <TH>Zaman Çizelgesi</TH>
-              <TH>Risk</TH>
-              <TH>Öncelik</TH>
-              <TH>Durum</TH>
+              <SortTH label="Kodu" col="code" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Proje İsmi" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Fabrika" col="factory" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="İhtimal" col="probability" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Hedef Bütçe" col="budget" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Zaman Çizelgesi" col="timeline" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Risk" col="risk" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Öncelik" col="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Durum" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <TH></TH>
             </TR>
           </THead>
           <TBody>
-            {projects.map((p) => (
+            {sorted.map((p) => (
               <TR key={p.id}>
                 <TD className="font-mono text-xs font-bold text-muted-foreground">
                   {p.projectCode}
@@ -113,21 +185,39 @@ export function ProjectsClient({
                   <Badge tone={statusTone(p.status)}>{STATUS_LABELS[p.status]}</Badge>
                 </TD>
                 <TD>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setEditing(p)}
-                    aria-label="Düzenle"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditing(p)}
+                      aria-label="Düzenle"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive"
+                      disabled={deletingId === p.id}
+                      onClick={() => onDelete(p)}
+                      aria-label="Sil"
+                    >
+                      {deletingId === p.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </TD>
               </TR>
             ))}
-            {projects.length === 0 && (
+            {sorted.length === 0 && (
               <TR>
                 <TD colSpan={10} className="py-10 text-center text-muted-foreground">
-                  Henüz proje yok. &quot;Yeni Proje&quot; ile başlayın.
+                  {q
+                    ? "Aramanızla eşleşen proje bulunamadı."
+                    : "Henüz proje yok. “Yeni Proje” ile başlayın."}
                 </TD>
               </TR>
             )}
