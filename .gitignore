@@ -1,2 +1,9 @@
 # Yerel veri seed'i / DB dump'ı — asla repoya push edilmez (özel veri içerir)
 /seed/
+
+# KURAL: Excel verileri HİÇBİR ŞEKİLDE GitHub'a push edilmez (özel veri içerir).
+# Bu, doldurulmuş "Veri Çek" şablonları dahil tüm .xlsx/.xls dosyalarını kapsar.
+# Boş şablonlar gerektiğinde frontend/prisma/generate-templates.ts ile üretilir.
+*.xlsx
+*.xls
+*.xlsm

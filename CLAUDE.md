@@ -34,3 +34,9 @@ Proje, mikroservis karmaşasından uzak, monorepo veya temiz ayrıştırılmış
 Agent, kullanıcıyla çalışırken aşağıdaki temel kurala uymak zorundadır:
 - **Tüm işlemleri ve kod geliştirmelerini tamamladıktan sonra, ek bir komut veya onay beklemeden ilgili değişiklikleri GitHub reposuna `commit` ve `push` etmelidir.**
 - Bu, her başarılı özellik eklemesi, hata çözümü veya doküman güncellemesinden sonra sistemin otomatik olarak uzak sunucuya yedeklenmesi (sürekli entegrasyon mantığı) için zorunludur.
+
+### 4.1 VERİ GİZLİLİĞİ KURALI — Excel verileri asla push edilmez
+- **Excel verileri (`.xlsx`, `.xls`, `.xlsm`) HİÇBİR ŞEKİLDE GitHub'a push edilmez.** Bu dosyalar özel/kurumsal veri içerir.
+- Bu kural, doldurulmuş "Veri Çek" şablonları (`frontend/prisma/seed-data/*.xlsx`) ve yerel DB dump'ı (`/seed/`) dahil olmak üzere tüm veri dosyalarını kapsar.
+- Bu dosyalar `.gitignore` ile hariç tutulmuştur; agent commit/push yaparken **yalnızca kod ve doküman** değişikliklerini stage etmeli, hiçbir zaman `git add -A`/`git add .` ile veri dosyalarını dahil etmemelidir.
+- Boş şablonlar gerektiğinde `frontend/prisma/generate-templates.ts` ile yeniden üretilir (veri içermez).
