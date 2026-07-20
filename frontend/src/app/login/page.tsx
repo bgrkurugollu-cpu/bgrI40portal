@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@bgr.local");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +65,8 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="ornek@sirket.com"
+              autoComplete="username"
               required
               autoFocus
             />
@@ -76,7 +78,8 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="admin123"
+              placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
@@ -89,9 +92,6 @@ export default function LoginPage() {
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Giriş Yap
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Demo: admin@bgr.local / admin123
-          </p>
         </form>
       </motion.div>
     </div>
