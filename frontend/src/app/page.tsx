@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     await Promise.all([
       getRates(),
       prisma.project.findMany({ include: { factories: true } }),
-      prisma.monthlyFinancial.findMany({ where: { year } }),
+      prisma.monthlyFinancial.findMany({ where: { year }, include: { project: true } }),
       prisma.assignment.findMany({ where: { year } }),
       prisma.license.findMany(),
       prisma.invoice.findMany({
@@ -44,6 +44,17 @@ export default async function DashboardPage() {
     };
   });
 
+  // Proje bazlı aylık finansallar (TL) — nakit akışı anomalilerinde kök neden için.
+  const financialsByProject = financials.map((f) => ({
+    projectId: f.projectId,
+    projectCode: f.project.projectCode,
+    projectName: f.project.name,
+    month: f.month,
+    incomeTRY: toTRY(Number(f.income), f.currency as CurrencyCode, rates),
+    expenseTRY: toTRY(Number(f.expense), f.currency as CurrencyCode, rates),
+    internalIncomeTRY: toTRY(Number(f.internalIncome), f.currency as CurrencyCode, rates),
+  }));
+
   const effort = Array.from({ length: 12 }, (_, i) => {
     const rows = assignments.filter((a) => a.month === i + 1);
     return {
@@ -71,6 +82,7 @@ export default async function DashboardPage() {
         ).length,
       }}
       monthly={monthly}
+      financialsByProject={financialsByProject}
       effort={effort}
       upcomingInvoices={invoices.map((i) => ({
         id: i.id,

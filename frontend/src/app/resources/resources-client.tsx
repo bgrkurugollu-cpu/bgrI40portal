@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
   Bar,
@@ -13,15 +13,29 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
+import { ChevronRight, Pencil, Trash2, Plus, Check, X, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
-import { cn, MONTHS_TR_SHORT } from "@/lib/utils";
+import { cn, MONTHS_TR, MONTHS_TR_SHORT } from "@/lib/utils";
 import { workingDaysByMonth } from "@/lib/workdays";
+import { upsertAssignment, deleteAssignment } from "@/app/actions/projects";
 
 type Row = AssignmentDTO & { projectName: string };
+
+type EditDraft = { plannedDays: string; actualDays: string; resources: string };
+type AddDraft = {
+  projectId: string;
+  memberId: string;
+  year: string;
+  month: string;
+  plannedDays: string;
+  actualDays: string;
+  resources: string;
+};
 
 export function ResourcesClient({
   assignments,
@@ -106,6 +120,95 @@ export function ResourcesClient({
     if (ratio > 0.8) return "bg-warning/20 font-medium";
     return "bg-success/10";
   };
+
+  // ── Atama Detayları: aç/kapa + satır içi düzenleme + ekle/sil ──
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<EditDraft>({ plannedDays: "", actualDays: "", resources: "" });
+  const [busyId, setBusyId] = useState<string | null>(null); // kaydedilen/silinen satır id'si
+  const [adding, setAdding] = useState(false);
+  const emptyAdd: AddDraft = {
+    projectId: "",
+    memberId: "",
+    year: String(year),
+    month: String(new Date().getMonth() + 1),
+    plannedDays: "0",
+    actualDays: "0",
+    resources: "",
+  };
+  const [addDraft, setAddDraft] = useState<AddDraft>(emptyAdd);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit(a: Row) {
+    setError(null);
+    setEditingId(a.id);
+    setDraft({
+      plannedDays: String(a.plannedDays),
+      actualDays: String(a.actualDays),
+      resources: a.resources ?? "",
+    });
+  }
+
+  async function saveEdit(a: Row) {
+    setBusyId(a.id);
+    setError(null);
+    try {
+      await upsertAssignment({
+        projectId: a.projectId,
+        memberId: a.memberId,
+        year: a.year,
+        month: a.month,
+        plannedDays: Number(draft.plannedDays) || 0,
+        actualDays: Number(draft.actualDays) || 0,
+        resources: draft.resources.trim() || null,
+      });
+      setEditingId(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeRow(a: Row) {
+    if (!window.confirm(`${a.projectCode} / ${a.memberName} atamasını silmek istediğinize emin misiniz?`))
+      return;
+    setBusyId(a.id);
+    setError(null);
+    try {
+      await deleteAssignment(a.id, a.projectId);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function saveAdd() {
+    if (!addDraft.projectId || !addDraft.memberId) {
+      setError("Proje ve üye seçmelisiniz.");
+      return;
+    }
+    setBusyId("__add__");
+    setError(null);
+    try {
+      await upsertAssignment({
+        projectId: addDraft.projectId,
+        memberId: addDraft.memberId,
+        year: Number(addDraft.year) || year,
+        month: Number(addDraft.month) || 1,
+        plannedDays: Number(addDraft.plannedDays) || 0,
+        actualDays: Number(addDraft.actualDays) || 0,
+        resources: addDraft.resources.trim() || null,
+      });
+      setAdding(false);
+      setAddDraft(emptyAdd);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -253,58 +356,7 @@ export function ResourcesClient({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Atama Detayları</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <THead>
-              <TR>
-                <TH>Proje Kodu</TH>
-                <TH>Proje</TH>
-                <TH>Üye</TH>
-                <TH>Dönem</TH>
-                <TH className="text-right">Plan</TH>
-                <TH className="text-right">Gerçekleşen</TH>
-                <TH>Kaynaklar</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {filtered.map((a) => (
-                <TR key={a.id}>
-                  <TD className="font-mono text-xs font-bold text-muted-foreground">
-                    {a.projectCode}
-                  </TD>
-                  <TD>
-                    <Link
-                      href={`/projects/${a.projectId}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {a.projectName}
-                    </Link>
-                  </TD>
-                  <TD>{a.memberName}</TD>
-                  <TD className="text-muted-foreground">
-                    {MONTHS_TR_SHORT[a.month - 1]} {a.year}
-                  </TD>
-                  <TD className="text-right tabular-nums">{a.plannedDays}</TD>
-                  <TD className="text-right tabular-nums">{a.actualDays}</TD>
-                  <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
-                </TR>
-              ))}
-              {filtered.length === 0 && (
-                <TR>
-                  <TD colSpan={7} className="py-8 text-center text-muted-foreground">
-                    Seçili ay için kayıt yok
-                  </TD>
-                </TR>
-              )}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
-
+      {/* Kişi Bazlı Aylık Sapma Tablosu — okunabilirlik için Atama Detayları'nın üstünde */}
       <Card>
         <CardHeader>
           <CardTitle>Kişi Bazlı Aylık Sapma Tablosu</CardTitle>
@@ -339,7 +391,7 @@ export function ResourcesClient({
                       let bgClass = "bg-success/10";
                       if (v > 0) bgClass = "bg-destructive/15 font-semibold text-destructive";
                       else if (v < 0) bgClass = "bg-warning/20 font-medium text-amber-600 dark:text-amber-500";
-                      
+
                       return (
                         <TD key={i} className={cn("text-center tabular-nums", v !== 0 ? bgClass : "text-muted-foreground/40")}>
                           {v > 0 ? `+${v}` : v < 0 ? v : "·"}
@@ -357,6 +409,341 @@ export function ResourcesClient({
             </TBody>
           </Table>
         </CardContent>
+      </Card>
+
+      {/* Atama Detayları — açılıp kapanabilen, satır içi düzenlenebilir tablo */}
+      <Card>
+        <CardHeader
+          className="flex-row items-center justify-between cursor-pointer select-none"
+          onClick={() => setDetailsOpen((o) => !o)}
+        >
+          <div>
+            <CardTitle>Atama Detayları</CardTitle>
+            <CardDescription>
+              {filtered.length} satırlık atama detayı
+              {detailsOpen ? "" : " — genişletmek için tıklayın"}
+            </CardDescription>
+          </div>
+          <ChevronRight
+            className={cn(
+              "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+              detailsOpen && "rotate-90"
+            )}
+          />
+        </CardHeader>
+        <AnimatePresence initial={false}>
+          {detailsOpen && (
+            <motion.div
+              key="atama-detay"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <CardContent>
+                {error && (
+                  <p className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Proje Kodu</TH>
+                      <TH>Proje</TH>
+                      <TH>Üye</TH>
+                      <TH>Dönem</TH>
+                      <TH className="text-right">Plan</TH>
+                      <TH className="text-right">Gerçekleşen</TH>
+                      <TH>Kaynaklar</TH>
+                      <TH className="text-right">İşlem</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {filtered.map((a) => {
+                      const editing = editingId === a.id;
+                      const busy = busyId === a.id;
+                      return (
+                        <TR key={a.id}>
+                          <TD className="font-mono text-xs font-bold text-muted-foreground">
+                            {a.projectCode}
+                          </TD>
+                          <TD>
+                            <Link
+                              href={`/projects/${a.projectId}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {a.projectName}
+                            </Link>
+                          </TD>
+                          <TD>{a.memberName}</TD>
+                          <TD className="text-muted-foreground">
+                            {MONTHS_TR_SHORT[a.month - 1]} {a.year}
+                          </TD>
+                          {editing ? (
+                            <>
+                              <TD className="text-right">
+                                <Input
+                                  type="number"
+                                  step="0.5"
+                                  min={0}
+                                  className="h-8 w-20 text-right tabular-nums"
+                                  value={draft.plannedDays}
+                                  onChange={(e) =>
+                                    setDraft((d) => ({ ...d, plannedDays: e.target.value }))
+                                  }
+                                />
+                              </TD>
+                              <TD className="text-right">
+                                <Input
+                                  type="number"
+                                  step="0.5"
+                                  min={0}
+                                  className="h-8 w-20 text-right tabular-nums"
+                                  value={draft.actualDays}
+                                  onChange={(e) =>
+                                    setDraft((d) => ({ ...d, actualDays: e.target.value }))
+                                  }
+                                />
+                              </TD>
+                              <TD>
+                                <Input
+                                  className="h-8"
+                                  value={draft.resources}
+                                  placeholder="Kaynak kişiler"
+                                  onChange={(e) =>
+                                    setDraft((d) => ({ ...d, resources: e.target.value }))
+                                  }
+                                />
+                              </TD>
+                              <TD>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-success"
+                                    disabled={busy}
+                                    onClick={() => saveEdit(a)}
+                                    title="Kaydet"
+                                  >
+                                    {busy ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Check className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy}
+                                    onClick={() => setEditingId(null)}
+                                    title="Vazgeç"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TD>
+                            </>
+                          ) : (
+                            <>
+                              <TD className="text-right tabular-nums">{a.plannedDays}</TD>
+                              <TD className="text-right tabular-nums">{a.actualDays}</TD>
+                              <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
+                              <TD>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy || editingId !== null}
+                                    onClick={() => startEdit(a)}
+                                    title="Düzenle"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive"
+                                    disabled={busy || editingId !== null}
+                                    onClick={() => removeRow(a)}
+                                    title="Sil"
+                                  >
+                                    {busy ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </TD>
+                            </>
+                          )}
+                        </TR>
+                      );
+                    })}
+
+                    {/* Ekleme satırı */}
+                    {adding && (
+                      <TR className="bg-muted/30">
+                        <TD className="text-muted-foreground" colSpan={2}>
+                          <Select
+                            className="h-8"
+                            value={addDraft.projectId}
+                            onChange={(e) =>
+                              setAddDraft((d) => ({ ...d, projectId: e.target.value }))
+                            }
+                          >
+                            <option value="">Proje seçin…</option>
+                            {projects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </TD>
+                        <TD>
+                          <Select
+                            className="h-8"
+                            value={addDraft.memberId}
+                            onChange={(e) =>
+                              setAddDraft((d) => ({ ...d, memberId: e.target.value }))
+                            }
+                          >
+                            <option value="">Üye…</option>
+                            {members.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </TD>
+                        <TD>
+                          <div className="flex gap-1">
+                            <Select
+                              className="h-8"
+                              value={addDraft.month}
+                              onChange={(e) =>
+                                setAddDraft((d) => ({ ...d, month: e.target.value }))
+                              }
+                            >
+                              {MONTHS_TR.map((mn, i) => (
+                                <option key={mn} value={i + 1}>
+                                  {mn}
+                                </option>
+                              ))}
+                            </Select>
+                            <Input
+                              type="number"
+                              className="h-8 w-20"
+                              value={addDraft.year}
+                              onChange={(e) =>
+                                setAddDraft((d) => ({ ...d, year: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </TD>
+                        <TD className="text-right">
+                          <Input
+                            type="number"
+                            step="0.5"
+                            min={0}
+                            className="h-8 w-20 text-right tabular-nums"
+                            value={addDraft.plannedDays}
+                            onChange={(e) =>
+                              setAddDraft((d) => ({ ...d, plannedDays: e.target.value }))
+                            }
+                          />
+                        </TD>
+                        <TD className="text-right">
+                          <Input
+                            type="number"
+                            step="0.5"
+                            min={0}
+                            className="h-8 w-20 text-right tabular-nums"
+                            value={addDraft.actualDays}
+                            onChange={(e) =>
+                              setAddDraft((d) => ({ ...d, actualDays: e.target.value }))
+                            }
+                          />
+                        </TD>
+                        <TD>
+                          <Input
+                            className="h-8"
+                            placeholder="Kaynak kişiler"
+                            value={addDraft.resources}
+                            onChange={(e) =>
+                              setAddDraft((d) => ({ ...d, resources: e.target.value }))
+                            }
+                          />
+                        </TD>
+                        <TD>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-success"
+                              disabled={busyId === "__add__"}
+                              onClick={saveAdd}
+                              title="Ekle"
+                            >
+                              {busyId === "__add__" ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={busyId === "__add__"}
+                              onClick={() => {
+                                setAdding(false);
+                                setAddDraft(emptyAdd);
+                              }}
+                              title="Vazgeç"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TD>
+                      </TR>
+                    )}
+
+                    {filtered.length === 0 && !adding && (
+                      <TR>
+                        <TD colSpan={8} className="py-8 text-center text-muted-foreground">
+                          Seçili filtre için kayıt yok
+                        </TD>
+                      </TR>
+                    )}
+                  </TBody>
+                </Table>
+
+                {!adding && (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setError(null);
+                        setEditingId(null);
+                        setAddDraft({ ...emptyAdd, year: String(year) });
+                        setAdding(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Atama Ekle
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );

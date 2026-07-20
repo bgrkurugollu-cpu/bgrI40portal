@@ -21,15 +21,20 @@ import {
   KeyRound,
   AlertTriangle,
   ArrowUpRight,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import {
   CurrencyCode,
+  cn,
   formatDate,
   formatMoney,
   INVOICE_STATUS_LABELS,
+  MONTHS_TR,
   MONTHS_TR_SHORT,
   RISK_LABELS,
   STATUS_LABELS,
@@ -49,6 +54,7 @@ export function DashboardClient({
   year,
   stats,
   monthly,
+  financialsByProject,
   effort,
   upcomingInvoices,
   projects,
@@ -56,6 +62,15 @@ export function DashboardClient({
   year: number;
   stats: Stats;
   monthly: { month: number; income: number; expense: number; internal: number }[];
+  financialsByProject: {
+    projectId: string;
+    projectCode: string;
+    projectName: string;
+    month: number;
+    incomeTRY: number;
+    expenseTRY: number;
+    internalIncomeTRY: number;
+  }[];
   effort: { month: number; planned: number; actual: number }[];
   upcomingInvoices: {
     id: string;
@@ -92,6 +107,61 @@ export function DashboardClient({
     Planlanan: e.planned,
     Gerçekleşen: e.actual,
   }));
+
+  // ── Nakit akışı anomali içgörüleri: içinde bulunulan ay ±1 ──
+  // İş kuralı: gelir = gider × 1.05 (markup sabit %5). Kârlılığı asıl oynatan
+  // iç kaynak (internalIncome) geliridir. Marj hedefi ~%5; toleransla değerlendirilir.
+  const MARGIN_TARGET = 0.05;
+  const MARGIN_TOL = 0.01; // ±1 puan bandı "normal" sayılır
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const insightMonths = [currentMonth - 1, currentMonth, currentMonth + 1].filter(
+    (m) => m >= 1 && m <= 12
+  );
+
+  const insights = insightMonths.map((month) => {
+    const agg = monthly.find((m) => m.month === month);
+    const income = agg?.income ?? 0;
+    const expense = agg?.expense ?? 0;
+    const internal = agg?.internal ?? 0;
+    const ciro = income + internal;
+    const kar = ciro - expense;
+    const marj = ciro > 0 ? kar / ciro : 0;
+    const hasData = ciro > 0 || expense > 0;
+
+    let status: "low" | "high" | "normal" | "none";
+    if (!hasData) status = "none";
+    else if (marj < MARGIN_TARGET - MARGIN_TOL) status = "low";
+    else if (marj > MARGIN_TARGET + MARGIN_TOL) status = "high";
+    else status = "normal";
+
+    const rows = financialsByProject.filter((f) => f.month === month);
+    // Kök neden: düşük kârlılıkta gider payı en yüksek proje(ler);
+    // yüksek kârlılıkta iç kaynağı en yüksek proje(ler).
+    let causes: { code: string; name: string; detail: string }[] = [];
+    if (status === "low") {
+      causes = [...rows]
+        .filter((r) => r.expenseTRY > 0)
+        .sort((a, b) => b.expenseTRY - a.expenseTRY)
+        .slice(0, 2)
+        .map((r) => ({
+          code: r.projectCode,
+          name: r.projectName,
+          detail: `gider ${formatMoney(r.expenseTRY)}`,
+        }));
+    } else if (status === "high") {
+      causes = [...rows]
+        .filter((r) => r.internalIncomeTRY > 0)
+        .sort((a, b) => b.internalIncomeTRY - a.internalIncomeTRY)
+        .slice(0, 2)
+        .map((r) => ({
+          code: r.projectCode,
+          name: r.projectName,
+          detail: `iç kaynak +${formatMoney(r.internalIncomeTRY)}`,
+        }));
+    }
+
+    return { month, income, expense, internal, ciro, kar, marj, status, causes };
+  });
 
   const container = {
     hidden: { opacity: 0 },
@@ -222,6 +292,29 @@ export function DashboardClient({
           </Card>
         </motion.div>
       </div>
+
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Nakit Akışı Anomali İçgörüleri</CardTitle>
+            <CardDescription>
+              İçinde bulunulan ay ve komşu aylar (±1) için gelir–gider dengesi. Hedef
+              kârlılık ~%5; sapmanın kök nedeni proje bazında belirtilir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {insights.map((ins) => (
+                <InsightCard
+                  key={ins.month}
+                  ins={ins}
+                  isCurrent={ins.month === currentMonth}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <motion.div variants={item}>
@@ -382,5 +475,87 @@ function Kpi({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type Insight = {
+  month: number;
+  income: number;
+  expense: number;
+  internal: number;
+  ciro: number;
+  kar: number;
+  marj: number;
+  status: "low" | "high" | "normal" | "none";
+  causes: { code: string; name: string; detail: string }[];
+};
+
+function InsightCard({ ins, isCurrent }: { ins: Insight; isCurrent: boolean }) {
+  const meta = {
+    low: { tone: "bg-destructive/10 text-destructive", icon: TrendingDown, label: "Düşük kârlılık" },
+    high: { tone: "bg-success/10 text-success", icon: TrendingUp, label: "Yüksek kârlılık" },
+    normal: { tone: "bg-muted text-muted-foreground", icon: Minus, label: "Normal (~%5)" },
+    none: { tone: "bg-muted text-muted-foreground", icon: Minus, label: "Veri yok" },
+  }[ins.status];
+  const Icon = meta.icon;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4 transition-colors",
+        isCurrent && "ring-2 ring-primary/40"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold">
+          {MONTHS_TR[ins.month - 1]}
+          {isCurrent && <span className="ml-1 text-xs font-normal text-primary">(bu ay)</span>}
+        </div>
+        <span
+          className={cn(
+            "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+            meta.tone
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {meta.label}
+        </span>
+      </div>
+
+      {ins.status === "none" ? (
+        <p className="mt-2 text-sm text-muted-foreground">Bu ay için finansal veri yok.</p>
+      ) : (
+        <>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tabular-nums">
+              %{(ins.marj * 100).toFixed(1)}
+            </span>
+            <span className="text-xs text-muted-foreground">kârlılık marjı</span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Ciro {formatMoney(ins.ciro)} · Gider {formatMoney(ins.expense)} · Kâr{" "}
+            {formatMoney(ins.kar)}
+          </div>
+          {ins.causes.length > 0 ? (
+            <div className="mt-3 border-t pt-2">
+              <div className="text-xs font-medium text-muted-foreground">Kök neden</div>
+              <ul className="mt-1 space-y-0.5">
+                {ins.causes.map((c) => (
+                  <li key={c.code} className="text-xs" title={c.name}>
+                    <span className="font-mono font-semibold">{c.code}</span> — {c.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            ins.status !== "normal" && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Belirgin proje kırılımı bulunamadı.
+              </p>
+            )
+          )}
+        </>
+      )}
+    </div>
   );
 }
