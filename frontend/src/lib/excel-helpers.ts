@@ -337,3 +337,8 @@ export function parseExcelFile(
 export function getTemplateHeaders(type: ImportType): string[] {
   return TEMPLATES[type].headers;
 }
+
+// Şablon not satırını dışa aç (boş şablon üretimi için)
+export function getTemplateNotes(type: ImportType): string | undefined {
+  return TEMPLATES[type].notes;
+}

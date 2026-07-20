@@ -7,3 +7,6 @@ next-env.d.ts
 test-results/
 playwright-report/
 blob-report/
+# "Veri Çek" şablonları — doldurulunca özel veri içerir, GitHub'a gönderilmez.
+# Boş şablonlar `prisma/generate-templates.ts` ile yeniden üretilebilir.
+prisma/seed-data/*.xlsx

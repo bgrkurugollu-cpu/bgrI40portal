@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   XCircle,
   RefreshCw,
+  DownloadCloud,
+  FolderSync,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ import {
   bulkImportInvoices,
   type BulkResult,
 } from "@/app/actions/bulk-import";
+import { pullSeedData, type PullSummary } from "@/app/actions/pull-data";
 import {
   downloadTemplate,
   parseExcelFile,
@@ -78,7 +81,7 @@ type MemberRow = {
 };
 type AppRow = { id: string; name: string; vendor: string | null; licenseCount: number };
 
-type Tab = "users" | "factories" | "members" | "applications" | "bulk";
+type Tab = "users" | "factories" | "members" | "applications" | "bulk" | "pull";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "users", label: "Kullanıcılar", icon: UserCog },
@@ -86,6 +89,7 @@ const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "members", label: "Ekip Üyeleri", icon: Users },
   { id: "applications", label: "Uygulamalar", icon: AppWindow },
   { id: "bulk", label: "Toplu Yükleme", icon: Upload },
+  { id: "pull", label: "Veri Çek", icon: FolderSync },
 ];
 
 export function AdminClient({
@@ -166,6 +170,7 @@ export function AdminClient({
             <ApplicationsTab applications={applications} onError={setError} />
           )}
           {tab === "bulk" && <BulkTab onError={setError} />}
+          {tab === "pull" && <PullTab onError={setError} />}
         </motion.div>
       </AnimatePresence>
     </motion.div>
@@ -1124,6 +1129,181 @@ function BulkTab({ onError }: { onError: (e: string | null) => void }) {
                           </TD>
                         </TR>
                       ))}
+                    </TBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Veri Çek (Sabit klasörden içe aktarma) ──────────────
+
+function PullTab({ onError }: { onError: (e: string | null) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<PullSummary | null>(null);
+
+  async function onPull() {
+    setLoading(true);
+    setSummary(null);
+    onError(null);
+    try {
+      const res = await pullSeedData();
+      setSummary(res);
+    } catch (err) {
+      onError((err as Error).message);
+    }
+    setLoading(false);
+  }
+
+  const totals = summary
+    ? summary.entries.reduce(
+        (acc, e) => {
+          if (e.result) {
+            acc.inserted += e.result.inserted;
+            acc.updated += e.result.updated;
+            acc.errors += e.result.errors.length;
+          }
+          if (e.error) acc.errors += 1;
+          return acc;
+        },
+        { inserted: 0, updated: 0, errors: 0 }
+      )
+    : null;
+
+  return (
+    <div className="space-y-5">
+      {/* Bilgilendirme */}
+      <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+        <div className="flex items-center gap-2 font-medium text-primary">
+          <FolderSync className="h-4 w-4" />
+          Sabit klasörden veri çek
+        </div>
+        <p className="mt-1 text-muted-foreground">
+          Sunucudaki sabit <code className="rounded bg-muted px-1">prisma/seed-data</code>{" "}
+          klasöründeki doldurulmuş Excel şablonları okunur ve platforma aktarılır.
+          Şablonlar bir bulut sürücüde (ör. OneDrive) online doldurulup senkronize
+          olduğunda, bu butona basmak güncellemeleri yansıtır. İçe aktarma
+          idempotenttir: tekrar çalıştırmak kayıtları çoğaltmaz; doğal anahtarıyla
+          eşleşenleri günceller.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DownloadCloud className="h-5 w-5 text-primary" />
+            Veri Çek
+          </CardTitle>
+          <CardDescription>
+            9 şablon (fabrikalar → projeler → atama/bütçe/finans/lisans/fatura …)
+            bağımlılık sırasıyla içeri alınır.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex justify-start">
+            <Button onClick={onPull} disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FolderSync className="h-4 w-4" />
+              )}
+              Verileri Çek
+            </Button>
+          </div>
+
+          {summary && (
+            <div className="space-y-4">
+              {/* Özet */}
+              {totals && (
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex items-center gap-2 rounded-md bg-green-500/10 px-3 py-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="font-semibold text-green-700 dark:text-green-400">
+                      {totals.inserted}
+                    </span>{" "}
+                    eklendi
+                  </div>
+                  <div className="flex items-center gap-2 rounded-md bg-blue-500/10 px-3 py-2 text-sm">
+                    <RefreshCw className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-blue-700 dark:text-blue-400">
+                      {totals.updated}
+                    </span>{" "}
+                    güncellendi
+                  </div>
+                  {totals.errors > 0 && (
+                    <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="font-semibold text-red-700 dark:text-red-400">
+                        {totals.errors}
+                      </span>{" "}
+                      hata
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Modül bazında sonuç */}
+              <div className="overflow-auto rounded-lg border">
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Modül</TH>
+                      <TH className="text-right">Eklendi</TH>
+                      <TH className="text-right">Güncellendi</TH>
+                      <TH className="text-right">Hata</TH>
+                      <TH>Durum</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {summary.entries.map((e) => (
+                      <TR key={e.type}>
+                        <TD className="font-medium">{e.label}</TD>
+                        <TD className="text-right">{e.result?.inserted ?? "—"}</TD>
+                        <TD className="text-right">{e.result?.updated ?? "—"}</TD>
+                        <TD className="text-right">
+                          {e.error ? 1 : e.result?.errors.length ?? "—"}
+                        </TD>
+                        <TD className="text-xs text-muted-foreground">
+                          {!e.found
+                            ? "dosya yok"
+                            : e.error
+                            ? e.error
+                            : "içe aktarıldı"}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              </div>
+
+              {/* Satır bazında hatalar */}
+              {summary.entries.some((e) => e.result && e.result.errors.length > 0) && (
+                <div className="max-h-64 overflow-auto rounded-lg border border-destructive/30 bg-destructive/5">
+                  <Table>
+                    <THead>
+                      <TR>
+                        <TH>Modül</TH>
+                        <TH className="w-16">Satır</TH>
+                        <TH>Hata</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {summary.entries.flatMap((e) =>
+                        (e.result?.errors ?? []).map((err, i) => (
+                          <TR key={`${e.type}-${i}`}>
+                            <TD className="font-medium">{e.label}</TD>
+                            <TD className="text-destructive">{err.row}</TD>
+                            <TD className="text-xs text-muted-foreground">
+                              {err.message}
+                            </TD>
+                          </TR>
+                        ))
+                      )}
                     </TBody>
                   </Table>
                 </div>
