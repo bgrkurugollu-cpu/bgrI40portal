@@ -19,9 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
 import { cn, MONTHS_TR_SHORT } from "@/lib/utils";
-
-// Ayda ~21 iş günü kapasite varsayımı
-const MONTHLY_CAPACITY = 21;
+import { workingDaysByMonth } from "@/lib/workdays";
 
 type Row = AssignmentDTO & { projectName: string };
 
@@ -92,11 +90,18 @@ export function ResourcesClient({
     [filtered]
   );
 
-  const teamCapacity = members.length * MONTHLY_CAPACITY;
+  // Her ay için 2026 çalışma günü (hafta içi − resmi tatil − köprü izin)
+  const workDays = useMemo(() => workingDaysByMonth(year), [year]);
+  const totalWorkDays = useMemo(
+    () => workDays.reduce((s, d) => s + d, 0),
+    [workDays]
+  );
+  const teamCapacityYear = members.length * totalWorkDays;
 
-  const cellClass = (v: number) => {
+  const cellClass = (v: number, monthIndex: number) => {
     if (v === 0) return "text-muted-foreground/40";
-    const ratio = v / MONTHLY_CAPACITY;
+    const capacity = workDays[monthIndex] || 1;
+    const ratio = v / capacity;
     if (ratio > 1) return "bg-destructive/15 font-semibold text-destructive";
     if (ratio > 0.8) return "bg-warning/20 font-medium";
     return "bg-success/10";
@@ -137,8 +142,9 @@ export function ResourcesClient({
         <CardHeader>
           <CardTitle>Ekip Yük Matrisi (planlanan adam-gün / ay)</CardTitle>
           <CardDescription>
-            Aylık kapasite varsayımı: kişi başı {MONTHLY_CAPACITY} iş günü. Kırmızı hücreler
-            kapasite aşımını gösterir.
+            Kapasite, her ay için 2026 çalışma günü sayısına göre hesaplanır (hafta
+            içi günlerden resmi tatiller ve köprü izinleri düşülür). Kırmızı hücreler
+            ilgili ayın kapasitesinin aşımını gösterir.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -165,7 +171,7 @@ export function ResourcesClient({
                       <div className="text-xs text-muted-foreground">{m.title}</div>
                     </TD>
                     {arr.map((v, i) => (
-                      <TD key={i} className={cn("text-center tabular-nums", cellClass(v))}>
+                      <TD key={i} className={cn("text-center tabular-nums", cellClass(v, i))}>
                         {v > 0 ? v : "·"}
                       </TD>
                     ))}
@@ -193,10 +199,27 @@ export function ResourcesClient({
                   )}
                 </TD>
               </TR>
+              <TR className="border-t-2">
+                <TD className="text-xs font-medium text-muted-foreground">
+                  Çalışma Günü ({year})
+                </TD>
+                {workDays.map((d, i) => (
+                  <TD
+                    key={i}
+                    className="text-center text-xs tabular-nums text-muted-foreground"
+                  >
+                    {d}
+                  </TD>
+                ))}
+                <TD className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
+                  {totalWorkDays}
+                </TD>
+              </TR>
             </TBody>
           </Table>
           <p className="mt-3 text-xs text-muted-foreground">
-            Ekip aylık toplam kapasitesi: {teamCapacity} adam-gün
+            Kapasite, {year} resmi tatilleri ve köprü izinleri düşülerek her ay için
+            ayrı hesaplanır. Ekip yıllık toplam kapasitesi: {teamCapacityYear} adam-gün.
           </p>
         </CardContent>
       </Card>
