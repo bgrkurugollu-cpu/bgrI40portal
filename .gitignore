@@ -7,3 +7,6 @@
 *.xlsx
 *.xls
 *.xlsm
+
+# Yerel Docker mount yapılandırması (makineye özel yollar) — push edilmez
+docker-compose.override.yml
