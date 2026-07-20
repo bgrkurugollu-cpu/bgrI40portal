@@ -76,12 +76,13 @@ export function FinanceClient({
   const ciro = totals.income + totals.internal;
   const karlilik = ciro - totals.expense;
 
-  // Pasta grafik: toplam gider ve iç kaynak gelirinin payı (birlikte "toplam" oluşturur).
+  // Pasta grafik: cironun bileşimi — Gelir (gider×1,05) + İç Kaynak Geliri = Ciro.
+  // Her dilim toplam cirodaki payı gösterir.
   const pieData = [
-    { name: "Toplam Gider", value: Math.round(totals.expense), color: "var(--destructive)" },
+    { name: "Gelir", value: Math.round(totals.income), color: "var(--success)" },
     { name: "İç Kaynak Geliri", value: Math.round(totals.internal), color: "var(--primary)" },
   ];
-  const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
+  const pieTotal = pieData.reduce((s, d) => s + d.value, 0); // = Ciro
 
   const chartData = useMemo(
     () =>
@@ -229,9 +230,9 @@ export function FinanceClient({
 
         <Card>
           <CardHeader>
-            <CardTitle>Gelir Dağılımı (Pay)</CardTitle>
+            <CardTitle>Ciro Dağılımı (Pay)</CardTitle>
             <CardDescription>
-              Toplam gider ve iç kaynak gelirinin payı — ikisi birlikte toplamı oluşturur (TL)
+              Gelir (gider×1,05) ve iç kaynak gelirinin toplam cirodaki payı (TL)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -267,12 +268,12 @@ export function FinanceClient({
             </div>
             <div className="mt-2 space-y-1 border-t pt-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Toplam Gider</span>
+                <span className="text-muted-foreground">Gelir</span>
                 <span className="font-medium tabular-nums">
-                  {formatMoney(totals.expense)}
+                  {formatMoney(totals.income)}
                   {pieTotal > 0 && (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      (%{((totals.expense / pieTotal) * 100).toFixed(0)})
+                      (%{((totals.income / pieTotal) * 100).toFixed(0)})
                     </span>
                   )}
                 </span>
@@ -289,7 +290,7 @@ export function FinanceClient({
                 </span>
               </div>
               <div className="flex items-center justify-between border-t pt-1 font-semibold">
-                <span>Toplam</span>
+                <span>Toplam (Ciro)</span>
                 <span className="tabular-nums">{formatMoney(pieTotal)}</span>
               </div>
             </div>
