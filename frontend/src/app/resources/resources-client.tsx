@@ -13,7 +13,7 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
-import { ChevronRight, Pencil, Trash2, Plus, Check, X, Loader2 } from "lucide-react";
+import { ChevronRight, Pencil, Trash2, Plus, Check, X, Loader2, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -143,9 +143,21 @@ export function ResourcesClient({
     return "bg-success/10";
   };
 
-  // ── Atama Detayları: sıralama + aç/kapa + satır içi düzenleme + ekle/sil ──
+  // ── Atama Detayları: arama + sıralama + aç/kapa + satır içi düzenleme + ekle/sil ──
+  const [detailQuery, setDetailQuery] = useState("");
+  const searchedRows = useMemo(() => {
+    const dq = detailQuery.trim().toLocaleLowerCase("tr");
+    if (!dq) return filtered;
+    return filtered.filter(
+      (a) =>
+        (a.projectCode ?? "").toLocaleLowerCase("tr").includes(dq) ||
+        a.projectName.toLocaleLowerCase("tr").includes(dq) ||
+        a.memberName.toLocaleLowerCase("tr").includes(dq) ||
+        (a.resources ?? "").toLocaleLowerCase("tr").includes(dq)
+    );
+  }, [filtered, detailQuery]);
   const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useSort(
-    filtered,
+    searchedRows,
     assignmentValue,
     { key: "member", dir: "asc" }
   );
@@ -474,6 +486,15 @@ export function ResourcesClient({
                     {error}
                   </p>
                 )}
+                <div className="relative mb-3 max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Proje, üye veya kaynak ara…"
+                    value={detailQuery}
+                    onChange={(e) => setDetailQuery(e.target.value)}
+                  />
+                </div>
                 <Table>
                   <THead>
                     <TR>
@@ -740,10 +761,12 @@ export function ResourcesClient({
                       </TR>
                     )}
 
-                    {filtered.length === 0 && !adding && (
+                    {sortedRows.length === 0 && !adding && (
                       <TR>
                         <TD colSpan={8} className="py-8 text-center text-muted-foreground">
-                          Seçili filtre için kayıt yok
+                          {detailQuery.trim()
+                            ? "Aramanızla eşleşen atama bulunamadı."
+                            : "Seçili filtre için kayıt yok"}
                         </TD>
                       </TR>
                     )}
