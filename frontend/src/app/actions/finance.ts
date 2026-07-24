@@ -55,6 +55,7 @@ export async function upsertMonthlyFinancial(input: {
 
 export async function addBudgetItem(input: {
   projectId: string;
+  year: number;
   category: string;
   description: string;
   quantity: number;

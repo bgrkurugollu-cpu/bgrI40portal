@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -394,8 +394,19 @@ function BudgetTab({
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const years = useMemo(
+    () => Array.from(new Set(budgetItems.map((b) => b.year))).sort((a, b) => a - b),
+    [budgetItems]
+  );
+  const [year, setYear] = useState(
+    years.includes(new Date().getFullYear())
+      ? new Date().getFullYear()
+      : (years[years.length - 1] ?? new Date().getFullYear())
+  );
+  // Yalnızca seçili yılın kalemleri gösterilir; her yıl ayrı bir bütçe kırılımıdır.
+  const yearItems = useMemo(() => budgetItems.filter((b) => b.year === year), [budgetItems, year]);
   // Toplam TL karşılığı üzerinden (kalemler farklı para biriminde olabilir).
-  const totalTRY = budgetItems.reduce((s, b) => s + b.amountTRY, 0);
+  const totalTRY = yearItems.reduce((s, b) => s + b.amountTRY, 0);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -403,6 +414,7 @@ function BudgetTab({
     const fd = new FormData(e.currentTarget);
     await addBudgetItem({
       projectId: project.id,
+      year: Number(fd.get("year")) || year,
       category: String(fd.get("category")),
       description: String(fd.get("description")),
       quantity: Number(fd.get("quantity")),
@@ -416,10 +428,21 @@ function BudgetTab({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Teklif / Bütçe Kırılımları</CardTitle>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> Kalem Ekle
-        </Button>
+        <div>
+          <CardTitle>Teklif / Bütçe Kırılımları</CardTitle>
+          <CardDescription>{year} yılı bütçe kalemleri</CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)}>
+            ← {year - 1}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y + 1)}>
+            {year + 1} →
+          </Button>
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" /> Kalem Ekle
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -435,7 +458,7 @@ function BudgetTab({
             </TR>
           </THead>
           <TBody>
-            {budgetItems.map((b) => (
+            {yearItems.map((b) => (
               <TR key={b.id}>
                 <TD>
                   <Badge tone="info">{b.category}</Badge>
@@ -459,16 +482,16 @@ function BudgetTab({
                 </TD>
               </TR>
             ))}
-            {budgetItems.length === 0 && (
+            {yearItems.length === 0 && (
               <TR>
                 <TD colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Bütçe kalemi eklenmemiş.
+                  {year} yılı için bütçe kalemi eklenmemiş.
                 </TD>
               </TR>
             )}
           </TBody>
         </Table>
-        {budgetItems.length > 0 && (
+        {yearItems.length > 0 && (
           <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm">
             <span className="font-medium">
               Toplam (TL karşılığı) — Hedef bütçenin %
@@ -485,6 +508,10 @@ function BudgetTab({
       <Dialog open={open} onClose={() => setOpen(false)} title="Bütçe Kalemi Ekle">
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Yıl</Label>
+              <Input name="year" type="number" min={2000} max={2100} defaultValue={year} required />
+            </div>
             <div>
               <Label>Kategori</Label>
               <Input name="category" placeholder="Donanım / Yazılım / İşçilik" required />

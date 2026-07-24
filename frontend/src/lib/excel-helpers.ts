@@ -126,6 +126,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
     headers: [
       "Proje Kodu",
       "Proje",
+      "Yıl",
       "Kategori",
       "Açıklama",
       "Miktar",
@@ -133,10 +134,11 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       "Para Birimi",
     ],
     examples: [
-      ["PRJ-101", "MES Entegrasyonu", "Yazılım", "MES lisansları", 1, 18000, "USD"],
+      ["PRJ-101", "MES Entegrasyonu", 2026, "Yazılım", "MES lisansları", 1, 18000, "USD"],
       [
         "PRJ-101",
         "MES Entegrasyonu",
+        2026,
         "Donanım",
         "Endüstriyel PC ve sunucular",
         6,
@@ -144,7 +146,7 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
         "TRY",
       ],
     ],
-    notes: "Para Birimi: TRY / USD / EUR / GBP",
+    notes: "Yıl: bütçe kaleminin ait olduğu yıl (örn. 2026)  |  Para Birimi: TRY / USD / EUR / GBP",
   },
   financials: {
     headers: [

@@ -362,7 +362,8 @@ export async function importAssignments(prisma: PrismaClient, rows: RawRow[]): P
 }
 
 // ── Bütçe Kalemleri ─────────────────────────────────────
-// Doğal anahtar: (Proje, Kategori, Açıklama) — kompozit, DB constraint yok.
+// Doğal anahtar: (Proje, Yıl, Kategori, Açıklama) — kompozit, DB constraint yok.
+// Bütçe kalemleri yıl bazlıdır: her yıl için ayrı bir bütçe kırılımı tutulur.
 
 export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): Promise<BulkResult> {
   const result = emptyResult();
@@ -380,6 +381,12 @@ export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): P
         row: i + 1,
         message: `"${projectName}" isimli proje bulunamadı. Önce projeleri yükleyin.`,
       });
+      continue;
+    }
+
+    const year = num(r["Yıl"]);
+    if (year < 2000 || year > 2100) {
+      result.errors.push({ row: i + 1, message: `Geçersiz yıl: "${str(r["Yıl"])}"` });
       continue;
     }
 
@@ -402,12 +409,12 @@ export async function importBudgetItems(prisma: PrismaClient, rows: RawRow[]): P
     const data = { quantity, unitPrice, amount: quantity * unitPrice, currency };
 
     try {
-      const existing = await prisma.budgetItem.findFirst({ where: { projectId, category, description } });
+      const existing = await prisma.budgetItem.findFirst({ where: { projectId, year, category, description } });
       if (existing) {
         await prisma.budgetItem.update({ where: { id: existing.id }, data });
         result.updated++;
       } else {
-        await prisma.budgetItem.create({ data: { projectId, category, description, ...data } });
+        await prisma.budgetItem.create({ data: { projectId, year, category, description, ...data } });
         result.inserted++;
       }
     } catch (e) {

@@ -86,6 +86,7 @@ export default async function ProjectDetailPage({
     const currency = b.currency as CurrencyCode;
     return {
       id: b.id,
+      year: b.year,
       category: b.category,
       description: b.description,
       quantity: Number(b.quantity),

@@ -131,12 +131,15 @@ model BudgetItem {
   id          String   @id @default(cuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  year        Int      @default(2026) // bütçe kalemi hangi yıla ait
   category    String // örn. Donanım, Yazılım, İşçilik
   description String
   quantity    Decimal  @default(1) @db.Decimal(10, 2)
   unitPrice   Decimal  @default(0) @db.Decimal(14, 2)
   amount      Decimal  @default(0) @db.Decimal(14, 2)
   currency    Currency @default(TRY)
+
+  @@index([projectId, year])
 }
 
 // Aylık gelir / gider / iç kaynak geliri gridi

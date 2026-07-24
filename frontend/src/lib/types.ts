@@ -52,6 +52,7 @@ export type BudgetItemDTO = {
   projectId?: string;
   projectCode?: string;
   projectName?: string;
+  year: number;
   category: string;
   description: string;
   quantity: number;
