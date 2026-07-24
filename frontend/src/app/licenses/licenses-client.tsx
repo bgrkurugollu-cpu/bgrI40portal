@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { motion } from "framer-motion";
 import {
   Plus,
   Pencil,
@@ -92,7 +91,7 @@ export function LicensesClient({
           : "muted";
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Lisans & Key Yönetimi</h1>
@@ -256,7 +255,7 @@ export function LicensesClient({
           />
         )}
       </Dialog>
-    </motion.div>
+    </div>
   );
 }
 

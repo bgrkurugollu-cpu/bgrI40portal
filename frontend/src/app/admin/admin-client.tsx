@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useState, type FormEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Factory,
@@ -109,7 +108,7 @@ export function AdminClient({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />
@@ -134,13 +133,7 @@ export function AdminClient({
               tab === id ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab === id && (
-              <motion.div
-                layoutId="admin-tab"
-                className="absolute inset-0 rounded-md bg-accent"
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              />
-            )}
+            {tab === id && <div className="absolute inset-0 rounded-md bg-accent" />}
             <Icon className="relative z-10 h-4 w-4" />
             <span className="relative z-10">{label}</span>
           </button>
@@ -153,27 +146,19 @@ export function AdminClient({
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.15 }}
-        >
-          {tab === "users" && (
-            <UsersTab users={users} currentUserId={currentUserId} onError={setError} />
-          )}
-          {tab === "factories" && <FactoriesTab factories={factories} onError={setError} />}
-          {tab === "members" && <MembersTab members={members} onError={setError} />}
-          {tab === "applications" && (
-            <ApplicationsTab applications={applications} onError={setError} />
-          )}
-          {tab === "bulk" && <BulkTab onError={setError} />}
-          {tab === "pull" && <PullTab onError={setError} />}
-        </motion.div>
-      </AnimatePresence>
-    </motion.div>
+      <div>
+        {tab === "users" && (
+          <UsersTab users={users} currentUserId={currentUserId} onError={setError} />
+        )}
+        {tab === "factories" && <FactoriesTab factories={factories} onError={setError} />}
+        {tab === "members" && <MembersTab members={members} onError={setError} />}
+        {tab === "applications" && (
+          <ApplicationsTab applications={applications} onError={setError} />
+        )}
+        {tab === "bulk" && <BulkTab onError={setError} />}
+        {tab === "pull" && <PullTab onError={setError} />}
+      </div>
+    </div>
   );
 }
 

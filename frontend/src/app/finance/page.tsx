@@ -10,11 +10,33 @@ export default async function FinancePage() {
   const [rates, financials, invoices, projects] = await Promise.all([
     getRates(),
     prisma.monthlyFinancial.findMany({
-      include: { project: true },
+      // Yalnızca DTO alanları — payload'ı küçük tutar.
+      select: {
+        id: true,
+        projectId: true,
+        year: true,
+        month: true,
+        income: true,
+        expense: true,
+        internalIncome: true,
+        currency: true,
+        project: { select: { name: true, projectCode: true } },
+      },
       orderBy: [{ year: "asc" }, { month: "asc" }],
     }),
     prisma.invoice.findMany({
-      include: { project: true },
+      select: {
+        id: true,
+        projectId: true,
+        description: true,
+        amount: true,
+        currency: true,
+        issueDate: true,
+        status: true,
+        ebaNumber: true,
+        poNumber: true,
+        project: { select: { name: true, projectCode: true } },
+      },
       orderBy: { issueDate: "asc" },
     }),
     prisma.project.findMany({ select: { id: true, name: true, projectCode: true } }),

@@ -7,7 +7,20 @@ export const dynamic = "force-dynamic";
 export default async function ResourcesPage() {
   const [assignments, members, projects] = await Promise.all([
     prisma.assignment.findMany({
-      include: { member: true, project: true },
+      // Yalnızca DTO'nun kullandığı alanlar — ilişkili satırların tamamı çekilmez,
+      // her navigasyon/revalidate'te serialize edilen payload küçülür.
+      select: {
+        id: true,
+        projectId: true,
+        memberId: true,
+        year: true,
+        month: true,
+        plannedDays: true,
+        actualDays: true,
+        resources: true,
+        member: { select: { name: true } },
+        project: { select: { name: true, projectCode: true } },
+      },
       orderBy: [{ year: "asc" }, { month: "asc" }],
     }),
     prisma.teamMember.findMany({ where: { active: true }, orderBy: { name: "asc" } }),

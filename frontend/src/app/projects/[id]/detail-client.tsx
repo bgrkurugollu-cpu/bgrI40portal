@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Pencil,
@@ -110,7 +109,7 @@ export function ProjectDetailClient(props: {
   const budgetTotal = props.budgetItems.reduce((s, b) => s + b.amountTRY, 0);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link
@@ -178,34 +177,20 @@ export function ProjectDetailClient(props: {
               tab === id ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab === id && (
-              <motion.div
-                layoutId="tab-active"
-                className="absolute inset-0 rounded-md bg-accent"
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              />
-            )}
+            {tab === id && <div className="absolute inset-0 rounded-md bg-accent" />}
             <Icon className="relative z-10 h-4 w-4" />
             <span className="relative z-10">{label}</span>
           </button>
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.15 }}
-        >
-          {tab === "team" && <TeamTab {...props} />}
-          {tab === "budget" && <BudgetTab {...props} />}
-          {tab === "monthly" && <MonthlyTab {...props} />}
-          {tab === "invoices" && <InvoicesTab {...props} />}
-          {tab === "history" && <HistoryTab logs={props.logs} />}
-        </motion.div>
-      </AnimatePresence>
+      <div>
+        {tab === "team" && <TeamTab {...props} />}
+        {tab === "budget" && <BudgetTab {...props} />}
+        {tab === "monthly" && <MonthlyTab {...props} />}
+        {tab === "invoices" && <InvoicesTab {...props} />}
+        {tab === "history" && <HistoryTab logs={props.logs} />}
+      </div>
 
       <Dialog open={editing} onClose={() => setEditing(false)} title="Projeyi Düzenle" wide>
         <ProjectForm
@@ -214,7 +199,7 @@ export function ProjectDetailClient(props: {
           onDone={() => setEditing(false)}
         />
       </Dialog>
-    </motion.div>
+    </div>
   );
 }
 

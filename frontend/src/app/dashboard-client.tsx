@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   AreaChart,
   Area,
@@ -149,25 +148,16 @@ export function DashboardClient({
     return { month, income, expense, internal, ciro, kar, marj, status, causes };
   });
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-  };
-  const item = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0 },
-  };
-
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={item}>
+    <div className="space-y-6">
+      <div>
         <h1 className="text-2xl font-bold">Genel Bakış</h1>
         <p className="text-sm text-muted-foreground">
           Proje, bütçe ve lisans durumunun özeti — {year}
         </p>
-      </motion.div>
+      </div>
 
-      <motion.div variants={item} className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Kpi
           icon={FolderKanban}
           label="Aktif Proje"
@@ -186,10 +176,10 @@ export function DashboardClient({
           value={String(stats.highRisk)}
           warn={stats.highRisk > 0}
         />
-      </motion.div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <motion.div variants={item}>
+        <div>
           <Card>
             <CardHeader>
               <CardTitle>Nakit Akışı ({year})</CardTitle>
@@ -245,9 +235,9 @@ export function DashboardClient({
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
-        <motion.div variants={item}>
+        <div>
           <Card>
             <CardHeader>
               <CardTitle>Ekip Eforu ({year})</CardTitle>
@@ -276,10 +266,10 @@ export function DashboardClient({
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
-      <motion.div variants={item}>
+      <div>
         <Card>
           <CardHeader>
             <CardTitle>Nakit Akışı Anomali İçgörüleri</CardTitle>
@@ -300,9 +290,9 @@ export function DashboardClient({
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
-      <motion.div variants={item}>
+      <div>
           <Card>
             <CardHeader>
               <CardTitle>Yaklaşan Faturalar</CardTitle>
@@ -365,8 +355,8 @@ export function DashboardClient({
               </Table>
             </CardContent>
           </Card>
-        </motion.div>
-    </motion.div>
+        </div>
+    </div>
   );
 }
 

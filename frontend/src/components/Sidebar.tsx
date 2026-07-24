@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -76,13 +75,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              {active && (
-                <motion.div
-                  layoutId="nav-active"
-                  className="absolute inset-0 rounded-lg bg-accent"
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                />
-              )}
+              {active && <div className="absolute inset-0 rounded-lg bg-accent" />}
               <Icon className="relative z-10 h-4 w-4" />
               <span className="relative z-10">{label}</span>
             </Link>
@@ -91,15 +84,8 @@ export function Sidebar() {
       </nav>
 
       <div ref={menuRef} className="relative border-t px-3 py-3">
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 6, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 6, scale: 0.98 }}
-              transition={{ duration: 0.12 }}
-              className="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl"
-            >
+        {menuOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl">
               <div className="border-b px-3 pt-1.5 pb-2.5">
                 <div className="truncate text-sm font-semibold">{user?.name}</div>
                 <div className="truncate text-xs text-muted-foreground">
@@ -145,9 +131,8 @@ export function Sidebar() {
                   Çıkış Yap
                 </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+        )}
 
         <button
           onClick={() => setMenuOpen((v) => !v)}

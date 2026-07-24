@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
   Bar,
@@ -145,8 +144,11 @@ export function ResourcesClient({
 
   // ── Atama Detayları: arama + sıralama + aç/kapa + satır içi düzenleme + ekle/sil ──
   const [detailQuery, setDetailQuery] = useState("");
+  // Arama filtresi düşük öncelikli işlenir; input her zaman akıcı kalır,
+  // liste/sıralama arka planda güncellenir (React 19 useDeferredValue).
+  const deferredQuery = useDeferredValue(detailQuery);
   const searchedRows = useMemo(() => {
-    const dq = detailQuery.trim().toLocaleLowerCase("tr");
+    const dq = deferredQuery.trim().toLocaleLowerCase("tr");
     if (!dq) return filtered;
     return filtered.filter(
       (a) =>
@@ -155,7 +157,7 @@ export function ResourcesClient({
         a.memberName.toLocaleLowerCase("tr").includes(dq) ||
         (a.resources ?? "").toLocaleLowerCase("tr").includes(dq)
     );
-  }, [filtered, detailQuery]);
+  }, [filtered, deferredQuery]);
   const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useSort(
     searchedRows,
     assignmentValue,
@@ -163,7 +165,6 @@ export function ResourcesClient({
   );
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ plannedDays: "", actualDays: "", resources: "" });
   const [busyId, setBusyId] = useState<string | null>(null); // kaydedilen/silinen satır id'si
   const [adding, setAdding] = useState(false);
   const emptyAdd: AddDraft = {
@@ -178,17 +179,17 @@ export function ResourcesClient({
   const [addDraft, setAddDraft] = useState<AddDraft>(emptyAdd);
   const [error, setError] = useState<string | null>(null);
 
-  function startEdit(a: Row) {
+  const startEdit = useCallback((a: Row) => {
     setError(null);
     setEditingId(a.id);
-    setDraft({
-      plannedDays: String(a.plannedDays),
-      actualDays: String(a.actualDays),
-      resources: a.resources ?? "",
-    });
-  }
+  }, []);
 
-  async function saveEdit(a: Row) {
+  const cancelEdit = useCallback(() => setEditingId(null), []);
+
+  // Düzenleme draft'ı artık satır bileşeninde (row-local) tutulur; kaydederken
+  // değerler buraya parametreyle gelir. Böylece bir hücreye yazmak yalnızca o
+  // satırı render eder — tüm sayfa + grafik + matrisler değil.
+  const saveEdit = useCallback(async (a: Row, values: EditDraft) => {
     setBusyId(a.id);
     setError(null);
     try {
@@ -197,9 +198,9 @@ export function ResourcesClient({
         memberId: a.memberId,
         year: a.year,
         month: a.month,
-        plannedDays: Number(draft.plannedDays) || 0,
-        actualDays: Number(draft.actualDays) || 0,
-        resources: draft.resources.trim() || null,
+        plannedDays: Number(values.plannedDays) || 0,
+        actualDays: Number(values.actualDays) || 0,
+        resources: values.resources.trim() || null,
       });
       setEditingId(null);
     } catch (e) {
@@ -207,9 +208,9 @@ export function ResourcesClient({
     } finally {
       setBusyId(null);
     }
-  }
+  }, []);
 
-  async function removeRow(a: Row) {
+  const removeRow = useCallback(async (a: Row) => {
     if (!window.confirm(`${a.projectCode} / ${a.memberName} atamasını silmek istediğinize emin misiniz?`))
       return;
     setBusyId(a.id);
@@ -221,7 +222,7 @@ export function ResourcesClient({
     } finally {
       setBusyId(null);
     }
-  }
+  }, []);
 
   async function saveAdd() {
     if (!addDraft.projectId || !addDraft.memberId) {
@@ -250,7 +251,7 @@ export function ResourcesClient({
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Kaynak Planı</h1>
@@ -470,16 +471,8 @@ export function ResourcesClient({
             )}
           />
         </CardHeader>
-        <AnimatePresence initial={false}>
-          {detailsOpen && (
-            <motion.div
-              key="atama-detay"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
+        {detailsOpen && (
+          <div className="overflow-hidden">
               <CardContent>
                 {error && (
                   <p className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -509,129 +502,19 @@ export function ResourcesClient({
                     </TR>
                   </THead>
                   <TBody>
-                    {sortedRows.map((a) => {
-                      const editing = editingId === a.id;
-                      const busy = busyId === a.id;
-                      return (
-                        <TR key={a.id}>
-                          <TD className="font-mono text-xs font-bold text-muted-foreground">
-                            {a.projectCode}
-                          </TD>
-                          <TD>
-                            <Link
-                              href={`/projects/${a.projectId}`}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {a.projectName}
-                            </Link>
-                          </TD>
-                          <TD>{a.memberName}</TD>
-                          <TD className="text-muted-foreground">
-                            {MONTHS_TR_SHORT[a.month - 1]} {a.year}
-                          </TD>
-                          {editing ? (
-                            <>
-                              <TD className="text-right">
-                                <Input
-                                  type="number"
-                                  step="0.5"
-                                  min={0}
-                                  className="h-8 w-20 text-right tabular-nums"
-                                  value={draft.plannedDays}
-                                  onChange={(e) =>
-                                    setDraft((d) => ({ ...d, plannedDays: e.target.value }))
-                                  }
-                                />
-                              </TD>
-                              <TD className="text-right">
-                                <Input
-                                  type="number"
-                                  step="0.5"
-                                  min={0}
-                                  className="h-8 w-20 text-right tabular-nums"
-                                  value={draft.actualDays}
-                                  onChange={(e) =>
-                                    setDraft((d) => ({ ...d, actualDays: e.target.value }))
-                                  }
-                                />
-                              </TD>
-                              <TD>
-                                <Input
-                                  className="h-8"
-                                  value={draft.resources}
-                                  placeholder="Kaynak kişiler"
-                                  onChange={(e) =>
-                                    setDraft((d) => ({ ...d, resources: e.target.value }))
-                                  }
-                                />
-                              </TD>
-                              <TD>
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-success"
-                                    disabled={busy}
-                                    onClick={() => saveEdit(a)}
-                                    title="Kaydet"
-                                  >
-                                    {busy ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Check className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    disabled={busy}
-                                    onClick={() => setEditingId(null)}
-                                    title="Vazgeç"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TD>
-                            </>
-                          ) : (
-                            <>
-                              <TD className="text-right tabular-nums">{a.plannedDays}</TD>
-                              <TD className="text-right tabular-nums">{a.actualDays}</TD>
-                              <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
-                              <TD>
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    disabled={busy || editingId !== null}
-                                    onClick={() => startEdit(a)}
-                                    title="Düzenle"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive"
-                                    disabled={busy || editingId !== null}
-                                    onClick={() => removeRow(a)}
-                                    title="Sil"
-                                  >
-                                    {busy ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </TD>
-                            </>
-                          )}
-                        </TR>
-                      );
-                    })}
+                    {sortedRows.map((a) => (
+                      <AssignmentRow
+                        key={a.id}
+                        a={a}
+                        editing={editingId === a.id}
+                        busy={busyId === a.id}
+                        anyEditing={editingId !== null}
+                        onStartEdit={startEdit}
+                        onCancel={cancelEdit}
+                        onSave={saveEdit}
+                        onDelete={removeRow}
+                      />
+                    ))}
 
                     {/* Ekleme satırı */}
                     {adding && (
@@ -791,10 +674,153 @@ export function ResourcesClient({
                   </div>
                 )}
               </CardContent>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </div>
+        )}
       </Card>
-    </motion.div>
+    </div>
   );
 }
+
+// ── Atama satırı (row-local düzenleme state'i) ──────────
+// Draft yalnızca bu bileşende tutulur; bir hücreye yazmak yalnızca bu satırı
+// render eder (üst bileşen, grafik ve matrisler etkilenmez). memo + stabil
+// callback'ler sayesinde diğer satırlar da yeniden render olmaz.
+const AssignmentRow = memo(function AssignmentRow({
+  a,
+  editing,
+  busy,
+  anyEditing,
+  onStartEdit,
+  onCancel,
+  onSave,
+  onDelete,
+}: {
+  a: Row;
+  editing: boolean;
+  busy: boolean;
+  anyEditing: boolean;
+  onStartEdit: (a: Row) => void;
+  onCancel: () => void;
+  onSave: (a: Row, values: EditDraft) => void;
+  onDelete: (a: Row) => void;
+}) {
+  const [draft, setDraft] = useState<EditDraft>({
+    plannedDays: String(a.plannedDays),
+    actualDays: String(a.actualDays),
+    resources: a.resources ?? "",
+  });
+
+  // Düzenlemeye girildiğinde draft'ı satırın güncel değerleriyle doldur.
+  function beginEdit() {
+    setDraft({
+      plannedDays: String(a.plannedDays),
+      actualDays: String(a.actualDays),
+      resources: a.resources ?? "",
+    });
+    onStartEdit(a);
+  }
+
+  return (
+    <TR>
+      <TD className="font-mono text-xs font-bold text-muted-foreground">{a.projectCode}</TD>
+      <TD>
+        <Link
+          href={`/projects/${a.projectId}`}
+          className="font-medium text-primary hover:underline"
+        >
+          {a.projectName}
+        </Link>
+      </TD>
+      <TD>{a.memberName}</TD>
+      <TD className="text-muted-foreground">
+        {MONTHS_TR_SHORT[a.month - 1]} {a.year}
+      </TD>
+      {editing ? (
+        <>
+          <TD className="text-right">
+            <Input
+              type="number"
+              step="0.5"
+              min={0}
+              className="h-8 w-20 text-right tabular-nums"
+              value={draft.plannedDays}
+              onChange={(e) => setDraft((d) => ({ ...d, plannedDays: e.target.value }))}
+            />
+          </TD>
+          <TD className="text-right">
+            <Input
+              type="number"
+              step="0.5"
+              min={0}
+              className="h-8 w-20 text-right tabular-nums"
+              value={draft.actualDays}
+              onChange={(e) => setDraft((d) => ({ ...d, actualDays: e.target.value }))}
+            />
+          </TD>
+          <TD>
+            <Input
+              className="h-8"
+              value={draft.resources}
+              placeholder="Kaynak kişiler"
+              onChange={(e) => setDraft((d) => ({ ...d, resources: e.target.value }))}
+            />
+          </TD>
+          <TD>
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-success"
+                disabled={busy}
+                onClick={() => onSave(a, draft)}
+                title="Kaydet"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={busy}
+                onClick={onCancel}
+                title="Vazgeç"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </TD>
+        </>
+      ) : (
+        <>
+          <TD className="text-right tabular-nums">{a.plannedDays}</TD>
+          <TD className="text-right tabular-nums">{a.actualDays}</TD>
+          <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
+          <TD>
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={busy || anyEditing}
+                onClick={beginEdit}
+                title="Düzenle"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive"
+                disabled={busy || anyEditing}
+                onClick={() => onDelete(a)}
+                title="Sil"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              </Button>
+            </div>
+          </TD>
+        </>
+      )}
+    </TR>
+  );
+});

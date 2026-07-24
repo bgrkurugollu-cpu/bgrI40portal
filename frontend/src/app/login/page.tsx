@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { Factory, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +35,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="w-full max-w-sm"
       >
         <div className="mb-8 flex flex-col items-center gap-3">
@@ -93,7 +89,7 @@ export default function LoginPage() {
             Giriş Yap
           </Button>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 }

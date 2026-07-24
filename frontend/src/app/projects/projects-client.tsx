@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Plus, Pencil, Trash2, ArrowUpRight, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,15 +68,18 @@ export function ProjectsClient({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  const q = query.trim().toLocaleLowerCase("tr");
-  const filtered = q
-    ? projects.filter(
-        (p) =>
-          p.projectCode.toLocaleLowerCase("tr").includes(q) ||
-          p.name.toLocaleLowerCase("tr").includes(q) ||
-          p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
-      )
-    : projects;
+  // Filtreleme memoize edilir; aksi halde her tuş vuruşunda yeni bir dizi
+  // referansı üretilip useSort'un yeniden sıralamasını tetikliyordu.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("tr");
+    if (!q) return projects;
+    return projects.filter(
+      (p) =>
+        p.projectCode.toLocaleLowerCase("tr").includes(q) ||
+        p.name.toLocaleLowerCase("tr").includes(q) ||
+        p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
+    );
+  }, [projects, query]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, projectValue);
 
@@ -99,11 +101,7 @@ export function ProjectsClient({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Projeler</h1>
@@ -215,7 +213,7 @@ export function ProjectsClient({
             {sorted.length === 0 && (
               <TR>
                 <TD colSpan={10} className="py-10 text-center text-muted-foreground">
-                  {q
+                  {query.trim()
                     ? "Aramanızla eşleşen proje bulunamadı."
                     : "Henüz proje yok. “Yeni Proje” ile başlayın."}
                 </TD>
@@ -247,6 +245,6 @@ export function ProjectsClient({
           />
         )}
       </Dialog>
-    </motion.div>
+    </div>
   );
 }
