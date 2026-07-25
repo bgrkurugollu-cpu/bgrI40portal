@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Bot, Send, X, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "model";
@@ -116,13 +118,19 @@ export function ChatbotPopup({ isOpen, onClose }: ChatbotPopupProps) {
             >
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-3 text-sm",
+                  "max-w-[80%] rounded-2xl px-4 py-3 text-sm overflow-hidden",
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground rounded-tr-sm"
-                    : "bg-muted text-foreground rounded-tl-sm"
+                    : "bg-muted text-foreground rounded-tl-sm prose prose-sm dark:prose-invert"
                 )}
               >
-                {msg.content}
+                {msg.role === "user" ? (
+                  msg.content
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           ))}
