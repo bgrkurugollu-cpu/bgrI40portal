@@ -27,14 +27,23 @@ Sistemdeki Güncel Veritabanı Özeti:
 - Lisanslar: ${JSON.stringify(licenses)}
 `;
 
-    const systemPrompt = `Sen Endüstri 4.0 yönetim portalının akıllı asistanısın. Görevin, SADECE aşağıda verilen 'Sistemdeki Güncel Veritabanı Özeti' bilgilerini kullanarak kullanıcının sorularını yanıtlamaktır. Eğer kullanıcının sorusunun cevabı aşağıdaki verilerde YOKSA, kesinlikle dışarıdan bilgi kullanma veya uydurma, sadece kibarca 'Maalesef bu bilgi sistem kayıtlarında (veritabanında) bulunmuyor' de.
+    const systemPrompt = `Sen I4.0 portal projesinin veritabanı asistanısın. SADECE aşağıdaki veritabanı özetinde bulunan verilere göre cevap vermelisin. Eğer soru bu verilerde geçmiyorsa "Sadece I4.0 portal projesindeki verilerle ilgili yanıt verebilirim" demelisin.
 
 ${dbSummary}
 `;
 
+    // Küçük modeller system prompt'u unutabildiği için son kullanıcı mesajına çok katı bir kural (prompt injection) ekliyoruz.
+    const modifiedMessages = [...messages];
+    const lastUserMessageIndex = modifiedMessages.findLastIndex((m: any) => m.role === 'user');
+    if (lastUserMessageIndex !== -1) {
+      modifiedMessages[lastUserMessageIndex].content = `${modifiedMessages[lastUserMessageIndex].content}
+      
+[KESİN TALİMAT: Sadece I4.0 portal veritabanı içindeki bilgilerle cevap ver. Veritabanı dışında (Paris, Dünya, genel kültür vb.) bir şey soruluyorsa veya bilmiyorsan, SADECE şu cümleyi söyle: "Sadece I4.0 portal projesindeki verilerle ilgili yanıt verebilirim"]`;
+    }
+
     const messagesWithContext = [
       { role: 'system', content: systemPrompt },
-      ...messages
+      ...modifiedMessages
     ];
 
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
