@@ -40,8 +40,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    command: >
-      sh -c "ollama serve & sleep 5 && ollama pull gemma2:2b && wait"
+    entrypoint: [ "/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull gemma2:2b && wait" ]
 
 volumes:
   pgdata:
