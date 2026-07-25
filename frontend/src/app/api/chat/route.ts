@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Fetch DB Summary
-    const [projects, factories, members, licenses] = await Promise.all([
+    const [projects, factories, members, licenses, invoices] = await Promise.all([
       prisma.project.findMany({
         select: { projectCode: true, name: true, status: true, riskLevel: true, targetBudget: true }
       }),
@@ -16,7 +16,10 @@ export async function POST(req: Request) {
       prisma.teamMember.findMany({ select: { name: true, title: true, active: true } }),
       prisma.license.findMany({ 
         select: { application: { select: { name: true } }, status: true } 
-      }) // Omitting sensitive license keys just in case
+      }), // Omitting sensitive license keys just in case
+      prisma.invoice.findMany({
+        select: { project: { select: { name: true } }, description: true, amount: true, currency: true, issueDate: true, status: true }
+      })
     ]);
 
     const dbSummary = `
@@ -25,6 +28,7 @@ Sistemdeki Güncel Veritabanı Özeti:
 - Fabrikalar: ${JSON.stringify(factories)}
 - Takım Üyeleri: ${JSON.stringify(members)}
 - Lisanslar: ${JSON.stringify(licenses)}
+- Faturalar: ${JSON.stringify(invoices)}
 `;
 
     const systemPrompt = `Sen I4.0 portal projesinin veritabanı asistanısın. SADECE aşağıdaki veritabanı özetinde bulunan verilere göre cevap vermelisin. Eğer soru bu verilerde geçmiyorsa "Sadece I4.0 portal projesindeki verilerle ilgili yanıt verebilirim" demelisin.
