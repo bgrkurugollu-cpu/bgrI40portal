@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, X, Loader2 } from "lucide-react";
+import { Bot, Send, X, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -25,6 +25,12 @@ export function ChatbotPopup({ isOpen, onClose }: ChatbotPopupProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const handleClear = () => {
+    setMessages([
+      { role: "model", content: "Merhaba! Uygulama ile ilgili sorularınızı cevaplamak için buradayım. Size nasıl yardımcı olabilirim?" }
+    ]);
+  };
 
   if (!isOpen) return null;
 
@@ -81,12 +87,21 @@ export function ChatbotPopup({ isOpen, onClose }: ChatbotPopupProps) {
               <p className="text-xs text-muted-foreground">Endüstri 4.0 Portal AI</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClear}
+              title="Sohbeti Temizle"
+              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Chat Area */}
