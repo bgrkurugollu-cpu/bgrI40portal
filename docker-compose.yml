@@ -41,7 +41,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     command: >
-      sh -c "ollama serve & sleep 5 && ollama pull gemma4 && wait"
+      sh -c "ollama serve & sleep 5 && ollama pull gemma2:2b && wait"
 
 volumes:
   pgdata:

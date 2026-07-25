@@ -12,7 +12,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemma4',
+        model: 'gemma2:2b',
         messages: messages,
         stream: false,
       }),
