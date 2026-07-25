@@ -27,6 +27,10 @@ export async function POST(req: Request) {
       issueDate: new Date(inv.issueDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
     }));
 
+    const invoicesText = invoices.length > 0 
+      ? invoices.map(i => `- Proje: ${i.project?.name || 'Bilinmiyor'}, Açıklama: ${i.description}, Tutar: ${i.amount} ${i.currency}, Tarih: ${i.issueDate}, Durum: ${i.status}`).join('\\n')
+      : 'Fatura kaydı bulunmuyor.';
+
     const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     const dbSummary = `
 Sistemdeki Güncel Veritabanı Özeti (Bugünün Tarihi: ${today}):
@@ -34,10 +38,12 @@ Sistemdeki Güncel Veritabanı Özeti (Bugünün Tarihi: ${today}):
 - Fabrikalar: ${JSON.stringify(factories)}
 - Takım Üyeleri: ${JSON.stringify(members)}
 - Lisanslar: ${JSON.stringify(licenses)}
-- Faturalar: ${JSON.stringify(invoices)}
+
+Faturalar:
+${invoicesText}
 `;
 
-    const systemPrompt = `Sen I4.0 portal projesinin veritabanı asistanısın. SADECE aşağıdaki veritabanı özetinde bulunan verilere göre cevap vermelisin. Eğer soru bu verilerde geçmiyorsa "Sadece I4.0 portal projesindeki verilerle ilgili yanıt verebilirim" demelisin.
+    const systemPrompt = `Sen I4.0 portal projesinin veritabanı asistanısın. SADECE aşağıdaki veritabanı özetinde bulunan verilere göre cevap vermelisin. Eğer soru bu verilerde geçmiyorsa "Sadece I4.0 portal projesindeki verilerle ilgili yanıt verebilirim" demelisin. Bir kayıt (özellikle fatura) sorulduğunda veya listelendiğinde, MUTLAKA projesini, açıklamasını, tutarını, para birimini ve tarihini tam cümlelerle veya düzgün bir listeyle göster.
 
 ${dbSummary}
 `;
