@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Fetch DB Summary
-    const [projects, factories, members, licenses, invoices] = await Promise.all([
+    const [projects, factories, members, licenses, rawInvoices] = await Promise.all([
       prisma.project.findMany({
         select: { projectCode: true, name: true, status: true, riskLevel: true, targetBudget: true }
       }),
@@ -22,8 +22,14 @@ export async function POST(req: Request) {
       })
     ]);
 
+    const invoices = rawInvoices.map(inv => ({
+      ...inv,
+      issueDate: new Date(inv.issueDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+    }));
+
+    const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     const dbSummary = `
-Sistemdeki Güncel Veritabanı Özeti:
+Sistemdeki Güncel Veritabanı Özeti (Bugünün Tarihi: ${today}):
 - Projeler: ${JSON.stringify(projects)}
 - Fabrikalar: ${JSON.stringify(factories)}
 - Takım Üyeleri: ${JSON.stringify(members)}
