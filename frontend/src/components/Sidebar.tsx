@@ -15,10 +15,12 @@ import {
   Factory,
   ShieldCheck,
   ChevronsUpDown,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { ChatbotPopup } from "./ChatbotPopup";
 
 const nav = [
   { href: "/", label: "Genel Bakış", icon: LayoutDashboard },
@@ -33,6 +35,7 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Dışarı tıklayınca menüyü kapat
@@ -49,7 +52,8 @@ export function Sidebar() {
   const isAdmin = user?.role === "ADMIN";
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
+    <>
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Factory className="h-5 w-5" />
@@ -82,6 +86,16 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="px-3 py-2">
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="flex w-full items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+        >
+          <Bot className="h-4 w-4" />
+          Bana Sor :)
+        </button>
+      </div>
 
       <div ref={menuRef} className="relative border-t px-3 py-3">
         {menuOpen && (
@@ -155,6 +169,8 @@ export function Sidebar() {
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
       </div>
-    </aside>
+      </aside>
+      <ChatbotPopup isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+    </>
   );
 }

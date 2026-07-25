@@ -29,10 +29,22 @@ services:
       DATABASE_URL: postgresql://bgr:bgrsecret@db:5432/bgrbrain?schema=public
       JWT_SECRET: change-me-in-production-9f8a7b6c5d4e
       NODE_ENV: production
+      OLLAMA_URL: http://llm:11434
     ports:
       - "3000:3000"
+
+  llm:
+    image: ollama/ollama:latest
+    container_name: bgr-brain-llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: >
+      sh -c "ollama serve & sleep 5 && ollama pull gemma4 && wait"
 
 volumes:
   pgdata:
   node_modules:
   next_cache:
+  ollama_data:
