@@ -5,6 +5,7 @@ const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
+      allowedOrigins: ["i40portal.bugrakurugollu.net", "localhost:3000"],
     },
     // Ağır kütüphaneleri barrel import yerine yalnızca kullanılan modüller
     // olarak paketle — client bundle'ı ve derleme süresini küçültür.

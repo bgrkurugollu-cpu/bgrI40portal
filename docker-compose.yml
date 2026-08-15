@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: bgrsecret
       POSTGRES_DB: bgrbrain
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
@@ -27,17 +27,17 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://bgr:bgrsecret@db:5432/bgrbrain?schema=public
-      JWT_SECRET: change-me-in-production-9f8a7b6c5d4e
+      JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
       OLLAMA_URL: http://llm:11434
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   llm:
     image: ollama/ollama:latest
     container_name: bgr-brain-llm
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     entrypoint: [ "/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull gemma2:2b && wait" ]
