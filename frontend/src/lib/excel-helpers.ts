@@ -223,11 +223,11 @@ const TEMPLATES: Record<ImportType, TemplateDef> = {
       "PO No",
     ],
     examples: [
-      ["PRJ-101", "MES Entegrasyonu", "MES Faz 1 - Avans", 500000, "TRY", "2026-03-15", "PAID", "EBA-2026-001", "PO-1001"],
-      ["PRJ-102", "Enerji İzleme", "Enerji izleme - Kurulum", 8000, "USD", "2026-05-20", "ISSUED", "", ""],
+      ["PRJ-101", "MES Entegrasyonu", "MES Faz 1 - Avans", 500000, "TRY", "2026-03-15", "ISSUED", "EBA-2026-001", "PO-1001"],
+      ["PRJ-102", "Enerji İzleme", "Enerji izleme - Kurulum", 8000, "USD", "2026-05-20", "PLANNED", "", ""],
     ],
     notes:
-      "Para Birimi: TRY / USD / EUR / GBP  |  Durum: PLANNED / ISSUED / PAID / OVERDUE  |  Tarih formatı: YYYY-MM-DD  |  EBA No ve PO No opsiyoneldir",
+      "Para Birimi: TRY / USD / EUR / GBP  |  Durum: PLANNED (Kesilecek) / ISSUED (Kesildi)  |  Tarih formatı: YYYY-MM-DD  |  EBA No ve PO No opsiyoneldir",
   },
 };
 

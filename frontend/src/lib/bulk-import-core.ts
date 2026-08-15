@@ -72,7 +72,7 @@ const VALID_STATUSES: ProjectStatus[] = ["PLANNED", "ACTIVE", "ON_HOLD", "COMPLE
 const VALID_CURRENCIES: Currency[] = ["TRY", "USD", "EUR", "GBP"];
 const VALID_PERIODS: PaymentPeriod[] = ["MONTHLY", "QUARTERLY", "YEARLY", "ONE_TIME"];
 const VALID_LICENSE_STATUSES: LicenseStatus[] = ["ACTIVE", "EXPIRING", "EXPIRED", "CANCELLED"];
-const VALID_INVOICE_STATUSES: InvoiceStatus[] = ["PLANNED", "ISSUED", "PAID", "OVERDUE"];
+const VALID_INVOICE_STATUSES: InvoiceStatus[] = ["PLANNED", "ISSUED"];
 
 const INCOME_MARKUP = 1.05;
 

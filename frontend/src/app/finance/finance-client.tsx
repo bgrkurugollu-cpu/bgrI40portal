@@ -26,7 +26,7 @@ import type { FinancialDTO, InvoiceDTO, RatesDTO } from "@/lib/types";
 import {
   formatDate,
   formatMoney,
-  INVOICE_STATUS_LABELS,
+  getInvoiceDerivedStatus,
   MONTHS_TR_SHORT,
 } from "@/lib/utils";
 
@@ -121,9 +121,6 @@ export function FinanceClient({
       ),
     [invoices, year, projectFilter]
   );
-
-  const tone = (s: string) =>
-    s === "PAID" ? "success" : s === "ISSUED" ? "info" : s === "OVERDUE" ? "destructive" : "muted";
 
   return (
     <div className="space-y-6">
@@ -418,7 +415,19 @@ export function FinanceClient({
                     {inv.currency === "TRY" ? "—" : formatMoney(inv.amountTRY)}
                   </TD>
                   <TD>
-                    <Badge tone={tone(inv.status)}>{INVOICE_STATUS_LABELS[inv.status]}</Badge>
+                    {(() => {
+                      const derived = getInvoiceDerivedStatus(inv.status, inv.issueDate);
+                      return (
+                        <div>
+                          <Badge tone={derived.tone}>{derived.label}</Badge>
+                          {derived.description && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {derived.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </TD>
                 </TR>
               ))}

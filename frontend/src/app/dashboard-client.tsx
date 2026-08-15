@@ -31,7 +31,7 @@ import {
   cn,
   formatDate,
   formatMoney,
-  INVOICE_STATUS_LABELS,
+  getInvoiceDerivedStatus,
   MONTHS_TR,
   MONTHS_TR_SHORT,
 } from "@/lib/utils";
@@ -338,9 +338,19 @@ export function DashboardClient({
                         )}
                       </TD>
                       <TD>
-                        <Badge tone={inv.status === "ISSUED" ? "info" : "muted"}>
-                          {INVOICE_STATUS_LABELS[inv.status]}
-                        </Badge>
+                        {(() => {
+                          const derived = getInvoiceDerivedStatus(inv.status, inv.issueDate);
+                          return (
+                            <div>
+                              <Badge tone={derived.tone}>{derived.label}</Badge>
+                              {derived.description && (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {derived.description}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TD>
                     </TR>
                   ))}

@@ -162,8 +162,6 @@ model MonthlyFinancial {
 enum InvoiceStatus {
   PLANNED
   ISSUED
-  PAID
-  OVERDUE
 }
 
 // Faturalama takvimi

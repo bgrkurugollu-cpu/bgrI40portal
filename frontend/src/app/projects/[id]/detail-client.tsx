@@ -53,6 +53,7 @@ import {
   CurrencyCode,
   formatDate,
   formatMoney,
+  getInvoiceDerivedStatus,
   INCOME_MARKUP,
   INVOICE_STATUS_LABELS,
   MONTHS_TR,
@@ -736,9 +737,6 @@ function InvoicesTab({
     setOpen(false);
   }
 
-  const tone = (s: string) =>
-    s === "PAID" ? "success" : s === "ISSUED" ? "info" : s === "OVERDUE" ? "destructive" : "muted";
-
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -790,7 +788,19 @@ function InvoicesTab({
                 </TD>
                 <TD>
                   <div className="flex items-center gap-1">
-                    <Badge tone={tone(inv.status)}>{INVOICE_STATUS_LABELS[inv.status]}</Badge>
+                    {(() => {
+                      const derived = getInvoiceDerivedStatus(inv.status, inv.issueDate);
+                      return (
+                        <div>
+                          <Badge tone={derived.tone}>{derived.label}</Badge>
+                          {derived.description && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {derived.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <Button
                       variant="ghost"
                       size="icon"

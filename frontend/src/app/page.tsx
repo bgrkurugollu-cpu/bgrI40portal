@@ -17,7 +17,7 @@ export default async function DashboardPage() {
       prisma.license.findMany(),
       prisma.invoice.findMany({
         include: { project: true },
-        where: { status: { in: ["PLANNED", "ISSUED"] } },
+        where: { status: "PLANNED" },
         orderBy: { issueDate: "asc" },
         take: 6,
       }),
