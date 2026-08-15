@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ChevronsUpDown,
   Bot,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -30,7 +31,13 @@ const nav = [
   { href: "/licenses", label: "Lisanslar", icon: KeyRound },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
@@ -49,19 +56,46 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
+  // Sayfa değiştiğinde mobil menüyü otomatik kapat
+  useEffect(() => {
+    onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   const isAdmin = user?.role === "ADMIN";
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
+      {/* Mobil karartma perdesi — menü açıkken içeriğin üzerine gelir, tıklanınca kapanır */}
+      {open && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r bg-card transition-transform duration-200 md:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Factory className="h-5 w-5" />
         </div>
-        <div>
+        <div className="flex-1">
           <div className="text-sm font-bold leading-tight">Endüstri 4.0 Yönetim Portalı</div>
           <div className="text-xs text-muted-foreground">DBD Ekibi Yönetim Portalı</div>
         </div>
+        <button
+          onClick={onClose}
+          aria-label="Menüyü kapat"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
