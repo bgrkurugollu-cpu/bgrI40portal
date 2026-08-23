@@ -418,11 +418,11 @@ ${dbContext}
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemma2:2b',
+        model: 'gemma4:e4b',
         messages: messagesWithContext,
         stream: false,
         options: {
-          num_ctx: 8192,       // Context window — gemma2:2b 8K'ya kadar destekler
+          num_ctx: 8192,       // Context window
           temperature: 0.3,    // Daha tutarlı yanıtlar için düşük sıcaklık
           top_p: 0.9,
         },

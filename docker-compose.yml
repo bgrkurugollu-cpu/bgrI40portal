@@ -31,22 +31,17 @@ services:
       DATABASE_URL: postgresql://bgr:bgrsecret@db:5432/bgrbrain?schema=public
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
-      OLLAMA_URL: http://llm:11434
+      # Ollama artık container değil, host makinede çalışıyor (macOS Docker Desktop).
+      # 11434 değil 11435: bu makinede başka bir proje (gbzprj) 11434'ü zaten
+      # kullanıyor, bu yüzden i40portal için ayrı bir Ollama instance'ı
+      # (com.i40portal.ollama-dev launchd agent) 11435'te dinliyor.
+      OLLAMA_URL: http://host.docker.internal:11435
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:3000:3000"
-
-  llm:
-    image: ollama/ollama:latest
-    container_name: bgr-brain-llm
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    entrypoint: [ "/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull gemma2:2b && wait" ]
 
 volumes:
   pgdata:
   node_modules:
   next_cache:
-  ollama_data:
