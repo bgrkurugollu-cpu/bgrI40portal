@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     container_name: bgr-brain-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: bgr
       POSTGRES_PASSWORD: bgrsecret
@@ -22,6 +23,7 @@ services:
   app:
     build: ./frontend
     container_name: bgr-brain-app
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -36,6 +38,7 @@ services:
   llm:
     image: ollama/ollama:latest
     container_name: bgr-brain-llm
+    restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
     volumes:

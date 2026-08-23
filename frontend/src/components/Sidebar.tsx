@@ -160,6 +160,19 @@ export function Sidebar({
                     Yönetim Paneli
                   </Link>
                 )}
+                <Link
+                  href="/account"
+                  onClick={() => setMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    pathname.startsWith("/account")
+                      ? "bg-accent text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Hesabım
+                </Link>
                 <button
                   onClick={toggle}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
