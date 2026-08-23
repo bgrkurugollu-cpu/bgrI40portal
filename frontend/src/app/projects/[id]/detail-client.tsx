@@ -638,18 +638,20 @@ function MonthlyRow({
   data?: FinancialDTO;
 }) {
   const [expense, setExpense] = useState<number>(data?.expense ?? 0);
+  const [internalIncome, setInternalIncome] = useState<number>(data?.internalIncome ?? 0);
+  const [currency, setCurrency] = useState<CurrencyCode>(data?.currency ?? "TRY");
   const [saving, setSaving] = useState(false);
   const income = Math.round(expense * INCOME_MARKUP * 100) / 100;
 
-  async function save(fd: FormData) {
+  async function save() {
     setSaving(true);
     await upsertMonthlyFinancial({
       projectId,
       year,
       month,
-      expense: Number(fd.get("expense")),
-      internalIncome: Number(fd.get("internalIncome")),
-      currency: fd.get("currency") as CurrencyCode,
+      expense,
+      internalIncome,
+      currency,
     });
     setSaving(false);
   }
@@ -657,59 +659,50 @@ function MonthlyRow({
   return (
     <TR>
       <TD className="font-medium">{name}</TD>
-      <form
-        className="contents"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save(new FormData(e.currentTarget));
-        }}
-      >
-        <TD>
-          <Input
-            name="expense"
-            type="number"
-            step="0.01"
-            value={expense}
-            onChange={(e) => setExpense(Number(e.target.value))}
-            className="h-8"
-          />
-        </TD>
-        <TD>
-          <Input
-            value={income}
-            readOnly
-            tabIndex={-1}
-            className="h-8 bg-muted text-muted-foreground"
-          />
-        </TD>
-        <TD>
-          <Input
-            name="internalIncome"
-            type="number"
-            step="0.01"
-            defaultValue={data?.internalIncome ?? 0}
-            className="h-8"
-          />
-        </TD>
-        <TD>
-          <Select
-            name="currency"
-            defaultValue={data?.currency ?? "TRY"}
-            className="h-8 w-24"
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-        </TD>
-        <TD>
-          <Button size="sm" variant="outline" type="submit" disabled={saving}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Kaydet"}
-          </Button>
-        </TD>
-      </form>
+      <TD>
+        <Input
+          type="number"
+          step="0.01"
+          value={expense}
+          onChange={(e) => setExpense(Number(e.target.value))}
+          className="h-8"
+        />
+      </TD>
+      <TD>
+        <Input
+          value={income}
+          readOnly
+          tabIndex={-1}
+          className="h-8 bg-muted text-muted-foreground"
+        />
+      </TD>
+      <TD>
+        <Input
+          type="number"
+          step="0.01"
+          value={internalIncome}
+          onChange={(e) => setInternalIncome(Number(e.target.value))}
+          className="h-8"
+        />
+      </TD>
+      <TD>
+        <Select
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+          className="h-8 w-24"
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </TD>
+      <TD>
+        <Button size="sm" variant="outline" onClick={save} disabled={saving}>
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Kaydet"}
+        </Button>
+      </TD>
     </TR>
   );
 }
