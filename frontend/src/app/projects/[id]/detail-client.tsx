@@ -657,14 +657,14 @@ function MonthlyRow({
   return (
     <TR>
       <TD className="font-medium">{name}</TD>
-      <TD colSpan={5} className="p-0">
-        <form
-          className="flex items-center gap-2 px-3 py-1.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save(new FormData(e.currentTarget));
-          }}
-        >
+      <form
+        className="contents"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save(new FormData(e.currentTarget));
+        }}
+      >
+        <TD>
           <Input
             name="expense"
             type="number"
@@ -673,12 +673,16 @@ function MonthlyRow({
             onChange={(e) => setExpense(Number(e.target.value))}
             className="h-8"
           />
+        </TD>
+        <TD>
           <Input
             value={income}
             readOnly
             tabIndex={-1}
             className="h-8 bg-muted text-muted-foreground"
           />
+        </TD>
+        <TD>
           <Input
             name="internalIncome"
             type="number"
@@ -686,6 +690,8 @@ function MonthlyRow({
             defaultValue={data?.internalIncome ?? 0}
             className="h-8"
           />
+        </TD>
+        <TD>
           <Select
             name="currency"
             defaultValue={data?.currency ?? "TRY"}
@@ -697,11 +703,13 @@ function MonthlyRow({
               </option>
             ))}
           </Select>
+        </TD>
+        <TD>
           <Button size="sm" variant="outline" type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Kaydet"}
           </Button>
-        </form>
-      </TD>
+        </TD>
+      </form>
     </TR>
   );
 }
