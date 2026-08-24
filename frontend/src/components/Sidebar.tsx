@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   ChevronsUpDown,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -32,9 +34,13 @@ const nav = [
 export function Sidebar({
   open,
   onClose,
+  desktopExpanded = false,
+  onToggleDesktop,
 }: {
   open: boolean;
   onClose: () => void;
+  desktopExpanded?: boolean;
+  onToggleDesktop?: () => void;
 }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -74,17 +80,26 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r bg-card transition-transform duration-200 md:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-all duration-300 md:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+          desktopExpanded ? "w-60" : "w-[80px]"
         )}
       >
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      {onToggleDesktop && (
+        <button
+          onClick={onToggleDesktop}
+          className="hidden md:flex absolute -right-3 top-7 h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-muted text-muted-foreground z-50"
+        >
+          {desktopExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+      )}
+      <div className={cn("flex items-center gap-2.5 py-5", desktopExpanded ? "px-5" : "px-0 justify-center")}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Factory className="h-5 w-5" />
         </div>
-        <div className="flex-1">
-          <div className="text-sm font-bold leading-tight">Endüstri 4.0 Yönetim Portalı</div>
-          <div className="text-xs text-muted-foreground">DBD Ekibi Yönetim Portalı</div>
+        <div className={cn("flex-1 overflow-hidden transition-all", desktopExpanded ? "opacity-100" : "md:hidden")}>
+          <div className="text-sm font-bold leading-tight truncate">Endüstri 4.0 Yönetim Portalı</div>
+          <div className="text-xs text-muted-foreground truncate">DBD Ekibi Yönetim Portalı</div>
         </div>
         <button
           onClick={onClose}
@@ -103,16 +118,18 @@ export function Sidebar({
             <Link
               key={href}
               href={href}
+              title={!desktopExpanded ? label : undefined}
               className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "relative flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
+                desktopExpanded ? "gap-3 px-3" : "justify-center px-0",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {active && <div className="absolute inset-0 rounded-lg bg-accent" />}
-              <Icon className="relative z-10 h-4 w-4" />
-              <span className="relative z-10">{label}</span>
+              <Icon className="relative z-10 h-5 w-5 shrink-0" />
+              <span className={cn("relative z-10 truncate transition-all", desktopExpanded ? "w-auto opacity-100" : "md:hidden")}>{label}</span>
             </Link>
           );
         })}
@@ -120,7 +137,10 @@ export function Sidebar({
 
       <div ref={menuRef} className="relative border-t px-3 py-3">
         {menuOpen && (
-            <div className="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl">
+            <div className={cn(
+              "absolute bottom-full mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl",
+              desktopExpanded ? "left-3 right-3" : "left-full ml-3 w-56"
+            )}>
               <div className="border-b px-3 pt-1.5 pb-2.5">
                 <div className="truncate text-sm font-semibold">{user?.name}</div>
                 <div className="truncate text-xs text-muted-foreground">
@@ -185,7 +205,8 @@ export function Sidebar({
         <button
           onClick={() => setMenuOpen((v) => !v)}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
+            "flex w-full items-center rounded-lg py-2 text-left transition-colors",
+            desktopExpanded ? "gap-3 px-2" : "justify-center px-0",
             menuOpen ? "bg-muted" : "hover:bg-muted"
           )}
           aria-expanded={menuOpen}
@@ -194,13 +215,15 @@ export function Sidebar({
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className={cn("min-w-0 flex-1 transition-all", desktopExpanded ? "opacity-100" : "md:hidden")}>
             <div className="truncate text-sm font-medium">{user?.name}</div>
             <div className="truncate text-xs text-muted-foreground">
               {isAdmin ? "Admin" : "Kullanıcı"}
             </div>
           </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {desktopExpanded && (
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
         </button>
       </div>
       </aside>

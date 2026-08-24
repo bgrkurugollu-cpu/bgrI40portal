@@ -1,8 +1,9 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
-import { Menu, Factory } from "lucide-react";
+import { Menu, Factory, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { Sidebar } from "./Sidebar";
+import { cn } from "@/lib/utils";
 
 export function AppShell({
   authed,
@@ -12,12 +13,18 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopExpanded, setDesktopExpanded] = useState(false); // Default to unexpanded (collapsed) on desktop
 
   if (!authed) return <>{children}</>;
 
   return (
     <div className="min-h-screen">
-      <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <Sidebar 
+        open={mobileOpen} 
+        onClose={() => setMobileOpen(false)} 
+        desktopExpanded={desktopExpanded}
+        onToggleDesktop={() => setDesktopExpanded((prev) => !prev)}
+      />
 
       {/* Mobil üst çubuk — sadece md altında görünür, sandviç menü butonu */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-card px-4 py-3 md:hidden">
@@ -37,7 +44,12 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="min-h-screen px-4 py-6 md:ml-60 md:px-8 md:py-8">
+      <main 
+        className={cn(
+          "min-h-screen px-4 py-6 md:px-8 md:py-8 transition-all duration-300",
+          desktopExpanded ? "md:ml-60" : "md:ml-[80px]"
+        )}
+      >
         {children}
       </main>
     </div>
