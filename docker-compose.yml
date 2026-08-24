@@ -18,6 +18,45 @@ services:
       timeout: 5s
       retries: 10
 
+  # "Bana Sor" asistanının çalıştırdığı lokal LLM sunucusu.
+  #
+  # DİKKAT — bellek: model ağırlıkları tamamen RAM'e yüklenir ve Docker
+  # Desktop'ın ayrılmış belleğini aşan model "signal: killed" ile ölür.
+  # Docker Desktop → Settings → Resources → Memory değerini kullanılan
+  # modelin boyutunun en az 1.5 katına çıkarın.
+  #
+  # Docker Desktop macOS'ta GPU'ya erişemez; modeller CPU'da çalışır. Daha
+  # hızlı yanıt için Ollama'yı hostta çalıştırıp (Metal GPU) bu servisi
+  # kaldırabilir ve OLLAMA_URL'i http://host.docker.internal:11434 yapabilirsiniz.
+  llm:
+    image: ollama/ollama:latest
+    container_name: bgr-brain-llm
+    restart: unless-stopped
+    # Sunucuyu başlat, ardından yapılandırılmış modelleri hazırla.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        ollama serve &
+        sleep 5 &&
+        ollama pull "${OLLAMA_MODEL:-gemma4:e4b}" &&
+        ollama pull "${OLLAMA_EMBED_MODEL:-embeddinggemma}" &&
+        wait
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      # Model bellekte kalsın; her soruda yeniden yüklenmesi çok yavaştır.
+      OLLAMA_KEEP_ALIVE: 30m
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
   # Production: derlenmiş Next.js sunucusu (hızlı). Günlük kullanım için bu.
   # Geliştirme (canlı yeniden yükleme) için: docker-compose.dev.yml override'ını ekleyin.
   app:
@@ -27,15 +66,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      llm:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://bgr:bgrsecret@db:5432/bgrbrain?schema=public
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
-      # Ollama artık container değil, host makinede çalışıyor (macOS Docker Desktop).
-      # 11434 değil 11435: bu makinede başka bir proje (gbzprj) 11434'ü zaten
-      # kullanıyor, bu yüzden i40portal için ayrı bir Ollama instance'ı
-      # (com.i40portal.ollama-dev launchd agent) 11435'te dinliyor.
-      OLLAMA_URL: http://host.docker.internal:11435
+
+      # ── "Bana Sor" lokal AI ayarları ────────────────────────────
+      # Tümü ortam değişkeni; model değiştirmek için kod düzenlemek gerekmez.
+      OLLAMA_URL: ${OLLAMA_URL:-http://llm:11434}
+      # Sohbet modeli. Kurulu değilse aynı aileden veya kurulu en küçük
+      # modele otomatik düşülür (bkz. /api/chat/health).
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+      # Gömme modeli — anlamsal arama için. Kurulu değilse sistem sözcük
+      # tabanlı aramaya düşer ve çalışmaya devam eder.
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-embeddinggemma}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.15}
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-600000}
+      # Veri tazeliğinin en sık kaç ms'de bir kontrol edileceği.
+      AI_FRESHNESS_CHECK_MS: ${AI_FRESHNESS_CHECK_MS:-3000}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -43,5 +94,6 @@ services:
 
 volumes:
   pgdata:
+  ollama_data:
   node_modules:
   next_cache:

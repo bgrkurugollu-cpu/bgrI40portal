@@ -16,3 +16,6 @@ docker-compose.override.yml
 
 # Secret'lar (JWT_SECRET, DB şifresi vb.) — asla repoya push edilmez
 .env
+
+# macOS klasör meta dosyaları
+.DS_Store
