@@ -6,11 +6,10 @@ DBD Ekibi PO Yönetimi için entegre iç yönetim uygulaması.
 1. **Proje ve Kaynak Yönetimi** — proje kayıtları, tarihsel değişiklik logu, risk/öncelik, aylık adam-gün planı ve plan/gerçekleşen karşılaştırması, ekip kapasite matrisi
 2. **Bütçe ve Finansal Yönetim** — kırılımlı bütçe kalemleri, aylık gelir/gider/iç kaynak geliri gridi, faturalama takvimi ve nakit akışı raporu
 3. **Lisans ve Key Yönetimi** — uygulama/lisans envanteri, yatırım ve abonelik maliyetleri, yenileme takibi
-4. **Bana Sor (Lokal AI Asistanı)** — portal verisiyle ilgili soruları, veriyi hiç dışarı çıkarmadan lokal Ollama modeliyle yanıtlar; veritabanı değiştikçe kendini günceller ([ayrıntılı doküman](docs/BANA-SOR.md))
-5. **Toplu Veri Yükleme (Initial Load)** — admin paneli üzerinden Excel (.xlsx) şablonlarıyla fabrikalar, üyeler, uygulamalar, projeler, kaynak planları, bütçeler, finans ve lisans verilerinin toplu içe aktarımı
+4. **Toplu Veri Yükleme (Initial Load)** — admin paneli üzerinden Excel (.xlsx) şablonlarıyla fabrikalar, üyeler, uygulamalar, projeler, kaynak planları, bütçeler, finans ve lisans verilerinin toplu içe aktarımı
 
 ## Teknoloji
-Next.js 15 (App Router, Server Actions) · TypeScript · Tailwind CSS v4 · Framer Motion · Recharts · Prisma ORM · PostgreSQL 16 · JWT (HTTP-only cookie) · SheetJS (xlsx) · Ollama (lokal LLM + RAG) · Docker Compose
+Next.js 15 (App Router, Server Actions) · TypeScript · Tailwind CSS v4 · Framer Motion · Recharts · Prisma ORM · PostgreSQL 16 · JWT (HTTP-only cookie) · SheetJS (xlsx) · Docker Compose
 
 ## Çalıştırma
 
@@ -22,20 +21,6 @@ docker compose up --build
 
 - Uygulama: http://localhost:3000
 - PostgreSQL: localhost:5433 (bgr / bgrsecret / bgrbrain)
-
-### "Bana Sor" için ek adım — Ollama hostta çalışır
-
-Asistanın modeli Docker'da değil, **host makinede** çalışır (Docker Desktop
-macOS'ta GPU'ya erişemez). `docker compose up` öncesi bir kez:
-
-```bash
-ollama pull gemma4:e4b      # sohbet modeli  (~9.6 GB)
-ollama pull embeddinggemma  # anlamsal arama (~0.6 GB)
-```
-
-Ollama.app açık olmalıdır; kapalıysa asistan yanıt veremez ve
-`/api/chat/health` bunu bildirir. Ayrıntı ve ölçümler:
-[docs/BANA-SOR.md](docs/BANA-SOR.md)
 
 **Giriş:** `admin@bgr.local` / `admin123`
 
@@ -50,7 +35,5 @@ Ollama.app açık olmalıdır; kapalıysa asistan yanıt veremez ve
         ├── app/            # Sayfalar, API route'ları, server action'lar
         ├── components/ui/  # UI bileşenleri
         ├── context/        # Auth ve tema context'leri
-        └── lib/
-            ├── ai/         # "Bana Sor": Ollama istemcisi, RAG bilgi tabanı, indeks
-            └── ...         # Prisma client, JWT, excel-helpers, yardımcılar
+        └── lib/            # Prisma client, JWT, excel-helpers, yardımcılar
 ```
