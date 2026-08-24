@@ -32,6 +32,7 @@ import {
   deleteBudgetItem,
   upsertMonthlyFinancial,
   addInvoice,
+  updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
 } from "@/app/actions/finance";
@@ -732,14 +733,24 @@ function InvoicesTab({
   invoices: InvoiceDTO[];
 }) {
   const [open, setOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceDTO | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function openAddDialog() {
+    setEditingInvoice(null);
+    setOpen(true);
+  }
+
+  function openEditDialog(inv: InvoiceDTO) {
+    setEditingInvoice(inv);
+    setOpen(true);
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    await addInvoice({
-      projectId: project.id,
+    const input = {
       description: String(fd.get("description")),
       amount: Number(fd.get("amount")),
       currency: fd.get("currency") as CurrencyCode,
@@ -748,16 +759,22 @@ function InvoicesTab({
       status: fd.get("status") as any,
       ebaNumber: fd.get("ebaNumber") ? String(fd.get("ebaNumber")) : undefined,
       poNumber: fd.get("poNumber") ? String(fd.get("poNumber")) : undefined,
-    });
+    };
+    if (editingInvoice) {
+      await updateInvoice(editingInvoice.id, input);
+    } else {
+      await addInvoice({ projectId: project.id, ...input });
+    }
     setLoading(false);
     setOpen(false);
+    setEditingInvoice(null);
   }
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Faturalama Takvimi</CardTitle>
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button size="sm" onClick={openAddDialog}>
           <Plus className="h-4 w-4" /> Fatura Ekle
         </Button>
       </CardHeader>
@@ -820,6 +837,14 @@ function InvoicesTab({
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Düzenle"
+                      onClick={() => openEditDialog(inv)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       aria-label="Sil"
                       onClick={() => deleteInvoice(inv.id)}
                     >
@@ -840,28 +865,47 @@ function InvoicesTab({
         </Table>
       </CardContent>
 
-      <Dialog open={open} onClose={() => setOpen(false)} title="Fatura Ekle">
-        <form onSubmit={onSubmit} className="space-y-4">
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setEditingInvoice(null);
+        }}
+        title={editingInvoice ? "Fatura Düzenle" : "Fatura Ekle"}
+      >
+        <form key={editingInvoice?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Açıklama</Label>
-              <Input name="description" required />
+              <Input name="description" defaultValue={editingInvoice?.description} required />
             </div>
             <div>
               <Label>Tutar</Label>
-              <Input name="amount" type="number" step="0.01" min={0} required />
+              <Input
+                name="amount"
+                type="number"
+                step="0.01"
+                min={0}
+                defaultValue={editingInvoice?.amount}
+                required
+              />
             </div>
             <div>
               <Label>Para Birimi</Label>
-              <CurrencySelect name="currency" />
+              <CurrencySelect name="currency" defaultValue={editingInvoice?.currency} />
             </div>
             <div>
               <Label>Kesim Tarihi</Label>
-              <Input name="issueDate" type="date" required />
+              <Input
+                name="issueDate"
+                type="date"
+                defaultValue={editingInvoice?.issueDate.slice(0, 10)}
+                required
+              />
             </div>
             <div>
               <Label>Durum</Label>
-              <Select name="status" defaultValue="PLANNED">
+              <Select name="status" defaultValue={editingInvoice?.status ?? "PLANNED"}>
                 {Object.entries(INVOICE_STATUS_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
@@ -871,19 +915,35 @@ function InvoicesTab({
             </div>
             <div>
               <Label>EBA No</Label>
-              <Input name="ebaNumber" placeholder="Opsiyonel" />
+              <Input
+                name="ebaNumber"
+                placeholder="Opsiyonel"
+                defaultValue={editingInvoice?.ebaNumber ?? ""}
+              />
             </div>
             <div>
               <Label>P.O. No</Label>
-              <Input name="poNumber" placeholder="Opsiyonel" />
+              <Input
+                name="poNumber"
+                placeholder="Opsiyonel"
+                defaultValue={editingInvoice?.poNumber ?? ""}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                setEditingInvoice(null);
+              }}
+            >
               Vazgeç
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />} Ekle
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+              {editingInvoice ? "Kaydet" : "Ekle"}
             </Button>
           </div>
         </form>

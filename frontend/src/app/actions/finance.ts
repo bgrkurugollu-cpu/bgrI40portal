@@ -100,6 +100,29 @@ export async function addInvoice(input: {
   revalidatePath("/finance");
 }
 
+export async function updateInvoice(
+  id: string,
+  input: {
+    description: string;
+    amount: number;
+    currency: Currency;
+    issueDate: string;
+    status: InvoiceStatus;
+    ebaNumber?: string;
+    poNumber?: string;
+  }
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+
+  const inv = await prisma.invoice.update({
+    where: { id },
+    data: { ...input, issueDate: new Date(input.issueDate) },
+  });
+  revalidatePath(`/projects/${inv.projectId}`);
+  revalidatePath("/finance");
+}
+
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
