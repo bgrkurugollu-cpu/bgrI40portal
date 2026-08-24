@@ -55,11 +55,16 @@ export type BudgetItemDTO = {
   year: number;
   category: string;
   description: string;
+  supplier: string | null;
+  unit: string | null;
   quantity: number;
   unitPrice: number;
   amount: number;
   currency: CurrencyCode;
   amountTRY: number;
+  note: string | null;
+  transferFeePercent: number | null;
+  transferPrice: number | null;
 };
 
 export type FinancialDTO = {

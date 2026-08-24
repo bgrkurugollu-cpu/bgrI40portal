@@ -60,9 +60,14 @@ export async function addBudgetItem(input: {
   year: number;
   category: string;
   description: string;
+  supplier?: string;
+  unit?: string;
   quantity: number;
   unitPrice: number;
   currency: Currency;
+  note?: string;
+  transferFeePercent?: number;
+  transferPrice?: number;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
@@ -78,6 +83,48 @@ export async function deleteBudgetItem(id: string, projectId: string) {
   if (!session) throw new Error("Yetkisiz");
   await prisma.budgetItem.delete({ where: { id } });
   revalidatePath(`/projects/${projectId}`);
+}
+
+export type ImportedBudgetItem = {
+  category: string;
+  description: string;
+  supplier?: string;
+  unit?: string;
+  quantity: number;
+  unitPrice: number;
+  currency: Currency;
+  note?: string;
+  transferFeePercent?: number;
+  transferPrice?: number;
+  year: number;
+};
+
+export async function importBudgetItemsForProject(
+  projectId: string,
+  items: ImportedBudgetItem[]
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+
+  await prisma.budgetItem.createMany({
+    data: items.map((it) => ({
+      projectId,
+      year: it.year,
+      category: it.category,
+      description: it.description,
+      supplier: it.supplier,
+      unit: it.unit,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      amount: it.quantity * it.unitPrice,
+      currency: it.currency,
+      note: it.note,
+      transferFeePercent: it.transferFeePercent,
+      transferPrice: it.transferPrice,
+    })),
+  });
+  revalidatePath(`/projects/${projectId}`);
+  return { inserted: items.length };
 }
 
 export async function addInvoice(input: {

@@ -13,6 +13,8 @@ import {
   CalendarDays,
   Receipt,
   Loader2,
+  Upload,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,12 +32,18 @@ import {
 import {
   addBudgetItem,
   deleteBudgetItem,
+  importBudgetItemsForProject,
   upsertMonthlyFinancial,
   addInvoice,
   updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
 } from "@/app/actions/finance";
+import {
+  parseBudgetExcelFile,
+  exportBudgetItemsToExcel,
+  type ImportedBudgetItem,
+} from "@/lib/budget-import";
 import type {
   AssignmentDTO,
   BudgetItemDTO,
@@ -383,6 +391,7 @@ function BudgetTab({
   budgetItems: BudgetItemDTO[];
 }) {
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const years = useMemo(
     () => Array.from(new Set(budgetItems.map((b) => b.year))).sort((a, b) => a - b),
@@ -407,9 +416,16 @@ function BudgetTab({
       year: Number(fd.get("year")) || year,
       category: String(fd.get("category")),
       description: String(fd.get("description")),
+      supplier: (fd.get("supplier") as string) || undefined,
+      unit: (fd.get("unit") as string) || undefined,
       quantity: Number(fd.get("quantity")),
       unitPrice: Number(fd.get("unitPrice")),
       currency: fd.get("currency") as CurrencyCode,
+      note: (fd.get("note") as string) || undefined,
+      transferFeePercent: fd.get("transferFeePercent")
+        ? Number(fd.get("transferFeePercent"))
+        : undefined,
+      transferPrice: fd.get("transferPrice") ? Number(fd.get("transferPrice")) : undefined,
     });
     setLoading(false);
     setOpen(false);
@@ -422,12 +438,23 @@ function BudgetTab({
           <CardTitle>Teklif / Bütçe Kırılımları</CardTitle>
           <CardDescription>{year} yılı bütçe kalemleri</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)}>
             ← {year - 1}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setYear((y) => y + 1)}>
             {year + 1} →
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={yearItems.length === 0}
+            onClick={() => exportBudgetItemsToExcel(yearItems, project.projectCode || project.name)}
+          >
+            <Download className="h-4 w-4" /> Dışa Aktar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" /> İçe Aktar
           </Button>
           <Button size="sm" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" /> Kalem Ekle
@@ -440,9 +467,13 @@ function BudgetTab({
             <TR>
               <TH>Kategori</TH>
               <TH>Açıklama</TH>
+              <TH>Tedarikçi</TH>
               <TH className="text-right">Miktar</TH>
+              <TH>Birim</TH>
               <TH className="text-right">Birim Fiyat</TH>
               <TH className="text-right">Tutar</TH>
+              <TH className="text-right">TF %</TH>
+              <TH className="text-right">TF Fiyatı</TH>
               <TH className="text-right">TL Karşılığı</TH>
               <TH></TH>
             </TR>
@@ -453,10 +484,23 @@ function BudgetTab({
                 <TD>
                   <Badge tone="info">{b.category}</Badge>
                 </TD>
-                <TD>{b.description}</TD>
+                <TD>
+                  {b.description}
+                  {b.note && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">{b.note}</div>
+                  )}
+                </TD>
+                <TD className="text-muted-foreground">{b.supplier || "—"}</TD>
                 <TD className="text-right">{b.quantity}</TD>
+                <TD className="text-muted-foreground">{b.unit || "—"}</TD>
                 <TD className="text-right">{formatMoney(b.unitPrice, b.currency)}</TD>
                 <TD className="text-right font-medium">{formatMoney(b.amount, b.currency)}</TD>
+                <TD className="text-right text-muted-foreground">
+                  {b.transferFeePercent != null ? `%${b.transferFeePercent}` : "—"}
+                </TD>
+                <TD className="text-right text-muted-foreground">
+                  {b.transferPrice != null ? formatMoney(b.transferPrice, b.currency) : "—"}
+                </TD>
                 <TD className="text-right text-muted-foreground">
                   {b.currency === "TRY" ? "—" : formatMoney(b.amountTRY)}
                 </TD>
@@ -474,7 +518,7 @@ function BudgetTab({
             ))}
             {yearItems.length === 0 && (
               <TR>
-                <TD colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TD colSpan={11} className="py-8 text-center text-muted-foreground">
                   {year} yılı için bütçe kalemi eklenmemiş.
                 </TD>
               </TR>
@@ -506,9 +550,17 @@ function BudgetTab({
               <Label>Kategori</Label>
               <Input name="category" placeholder="Donanım / Yazılım / İşçilik" required />
             </div>
-            <div>
+            <div className="col-span-2">
               <Label>Açıklama</Label>
               <Input name="description" required />
+            </div>
+            <div>
+              <Label>Tedarikçi</Label>
+              <Input name="supplier" placeholder="Opsiyonel" />
+            </div>
+            <div>
+              <Label>Birim</Label>
+              <Input name="unit" placeholder="ad, adet, gün... (opsiyonel)" />
             </div>
             <div>
               <Label>Miktar</Label>
@@ -518,9 +570,21 @@ function BudgetTab({
               <Label>Birim Fiyat</Label>
               <Input name="unitPrice" type="number" step="0.01" min={0} required />
             </div>
-            <div className="col-span-2">
+            <div>
               <Label>Para Birimi</Label>
               <CurrencySelect name="currency" />
+            </div>
+            <div>
+              <Label>TF %</Label>
+              <Input name="transferFeePercent" type="number" step="0.01" min={0} placeholder="Opsiyonel" />
+            </div>
+            <div>
+              <Label>TF (Transfer Fiyatı)</Label>
+              <Input name="transferPrice" type="number" step="0.01" min={0} placeholder="Opsiyonel" />
+            </div>
+            <div className="col-span-2">
+              <Label>Not</Label>
+              <Input name="note" placeholder="Opsiyonel" />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -533,7 +597,180 @@ function BudgetTab({
           </div>
         </form>
       </Dialog>
+
+      <BudgetImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        projectId={project.id}
+        defaultYear={year}
+      />
     </Card>
+  );
+}
+
+function BudgetImportDialog({
+  open,
+  onClose,
+  projectId,
+  defaultYear,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+  defaultYear: number;
+}) {
+  const [targetYear, setTargetYear] = useState(defaultYear);
+  const [parsed, setParsed] = useState<ImportedBudgetItem[] | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [done, setDone] = useState<number | null>(null);
+
+  function reset() {
+    setParsed(null);
+    setWarnings([]);
+    setFileError(null);
+    setDone(null);
+  }
+
+  async function handleFile(file: File) {
+    reset();
+    try {
+      const result = await parseBudgetExcelFile(file);
+      setParsed(result.items);
+      setWarnings(result.warnings);
+    } catch (err) {
+      setFileError((err as Error).message);
+    }
+  }
+
+  async function handleImport() {
+    if (!parsed || parsed.length === 0) return;
+    setImporting(true);
+    const result = await importBudgetItemsForProject(
+      projectId,
+      parsed.map((it) => ({ ...it, year: it.year ?? targetYear }))
+    );
+    setImporting(false);
+    setDone(result.inserted);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => {
+        onClose();
+        reset();
+      }}
+      title="Bütçe Kırılımını İçe Aktar (.xlsx)"
+      wide
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Uygulamanın kendi dışa aktardığı dosyayı ya da tedarikçi teklif Excel&apos;lerini
+          (Tedarikçi / Miktar / Birim / Birim Maliyet / TF % gibi sütunlar içeren) doğrudan
+          yükleyebilirsiniz. Satırlarda ayrı bir &quot;Yıl&quot; sütunu yoksa aşağıda seçtiğiniz
+          yıl kullanılır.
+        </p>
+        <div>
+          <Label>Hedef Yıl (Yıl sütunu olmayan satırlar için)</Label>
+          <Input
+            type="number"
+            min={2000}
+            max={2100}
+            value={targetYear}
+            onChange={(e) => setTargetYear(Number(e.target.value))}
+            className="w-32"
+          />
+        </div>
+        <div>
+          <Label>Excel Dosyası</Label>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+            className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-accent/80"
+          />
+        </div>
+
+        {fileError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {fileError}
+          </div>
+        )}
+
+        {warnings.length > 0 && (
+          <div className="space-y-1 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            {warnings.map((w, i) => (
+              <div key={i}>⚠️ {w}</div>
+            ))}
+          </div>
+        )}
+
+        {parsed && parsed.length > 0 && (
+          <div>
+            <div className="mb-2 text-sm font-medium">
+              {parsed.length} kalem bulundu — önizleme (ilk 8 satır):
+            </div>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Kategori</TH>
+                  <TH>Açıklama</TH>
+                  <TH>Tedarikçi</TH>
+                  <TH className="text-right">Miktar</TH>
+                  <TH className="text-right">Birim Fiyat</TH>
+                  <TH>Para Birimi</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {parsed.slice(0, 8).map((it, i) => (
+                  <TR key={i}>
+                    <TD>{it.category}</TD>
+                    <TD>{it.description}</TD>
+                    <TD className="text-muted-foreground">{it.supplier || "—"}</TD>
+                    <TD className="text-right">{it.quantity}</TD>
+                    <TD className="text-right">{it.unitPrice}</TD>
+                    <TD>{it.currency}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </div>
+        )}
+
+        {done != null && (
+          <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+            {done} kalem başarıyla içe aktarıldı.
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              onClose();
+              reset();
+            }}
+          >
+            {done != null ? "Kapat" : "Vazgeç"}
+          </Button>
+          {done == null && (
+            <Button
+              type="button"
+              disabled={!parsed || parsed.length === 0 || importing}
+              onClick={handleImport}
+            >
+              {importing && <Loader2 className="h-4 w-4 animate-spin" />} İçe Aktar
+            </Button>
+          )}
+        </div>
+      </div>
+    </Dialog>
   );
 }
 

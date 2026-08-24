@@ -89,11 +89,16 @@ export default async function ProjectDetailPage({
       year: b.year,
       category: b.category,
       description: b.description,
+      supplier: b.supplier,
+      unit: b.unit,
       quantity: Number(b.quantity),
       unitPrice: Number(b.unitPrice),
       amount: Number(b.amount),
       currency,
       amountTRY: toTRY(Number(b.amount), currency, rates),
+      note: b.note,
+      transferFeePercent: b.transferFeePercent != null ? Number(b.transferFeePercent) : null,
+      transferPrice: b.transferPrice != null ? Number(b.transferPrice) : null,
     };
   });
 
