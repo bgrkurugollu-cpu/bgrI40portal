@@ -22,14 +22,20 @@ docker compose up --build
 
 - Uygulama: http://localhost:3000
 - PostgreSQL: localhost:5433 (bgr / bgrsecret / bgrbrain)
-- Ollama (lokal AI): http://localhost:11435
 
-> **Bellek uyarısı:** "Bana Sor" asistanının modeli tamamen RAM'e yüklenir ve
-> üstüne context penceresi kadar KV cache biner. Varsayılan model
-> `gemma4:e4b` (9.6 GB) Docker Desktop'a **en az 12 GB** bellek ayrılmasını
-> gerektirir (Settings → Resources → Memory). Yetmezse asistan kurulu en küçük
-> modele düşer ve arayüzde uyarı gösterir.
-> Ayrıntı ve ölçümler: [docs/BANA-SOR.md](docs/BANA-SOR.md)
+### "Bana Sor" için ek adım — Ollama hostta çalışır
+
+Asistanın modeli Docker'da değil, **host makinede** çalışır (Docker Desktop
+macOS'ta GPU'ya erişemez). `docker compose up` öncesi bir kez:
+
+```bash
+ollama pull gemma4:e4b      # sohbet modeli  (~9.6 GB)
+ollama pull embeddinggemma  # anlamsal arama (~0.6 GB)
+```
+
+Ollama.app açık olmalıdır; kapalıysa asistan yanıt veremez ve
+`/api/chat/health` bunu bildirir. Ayrıntı ve ölçümler:
+[docs/BANA-SOR.md](docs/BANA-SOR.md)
 
 **Giriş:** `admin@bgr.local` / `admin123`
 

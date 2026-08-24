@@ -29,16 +29,12 @@ export const aiConfig = {
    * Gömme (embedding) modeli — anlamsal arama için. `none` ise kapalıdır ve
    * sistem yalnızca sözcük tabanlı aramayla çalışır.
    *
-   * Varsayılan KAPALIDIR. Sebebi bellek: Ollama gömme modelini sohbet
-   * modelinin YANINDA bellekte tutar (KEEP_ALIVE süresince). GPU'suz, belleği
-   * sınırlı bir Docker kurulumunda bu ikisi birlikte sınırı aşar ve sohbet
-   * modelinin süreci sessizce öldürülür ("unexpected EOF").
-   *
-   * Bolca belleğiniz varsa ya da Ollama'yı hostta (GPU'lu) çalıştırıyorsanız
-   * `OLLAMA_EMBED_MODEL=embeddinggemma` ile açın; geri getirisi, kelimesi
-   * geçmeyen sorularda daha iyi isabettir.
+   * Ollama hostta (Metal GPU ile) çalıştığı varsayılan kurulumda açıktır.
+   * Ollama'yı GPU'suz bir konteynerde çalıştırıyorsanız kapatmayı düşünün:
+   * gömme modeli sohbet modelinin YANINDA bellekte durur ve dar bir bellek
+   * sınırında sohbet modelinin süreci sessizce öldürülür ("unexpected EOF").
    */
-  embedModel: str('OLLAMA_EMBED_MODEL', 'none'),
+  embedModel: str('OLLAMA_EMBED_MODEL', 'embeddinggemma'),
 
   /**
    * Modelin context penceresi (token).

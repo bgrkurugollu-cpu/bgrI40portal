@@ -3,6 +3,32 @@
 Portal verisiyle ilgili soruları, **veriyi hiç dışarı çıkarmadan**, makinede
 çalışan bir Ollama modeliyle yanıtlar. Hiçbir bulut LLM servisi kullanılmaz.
 
+## Kurulum
+
+Ollama **hostta** çalışır, Docker konteynerinde değil. Sebebi ölçülmüştür:
+Docker Desktop macOS'ta GPU'ya erişemez ve aynı model CPU'da kat kat yavaştır.
+
+```bash
+# 1. Ollama hostta çalışıyor olmalı (Ollama.app açık ya da `ollama serve`)
+curl -s http://localhost:11434/api/version
+
+# 2. Modelleri çek
+ollama pull gemma4:e4b        # sohbet modeli  (~9.6 GB)
+ollama pull embeddinggemma    # anlamsal arama (~0.6 GB)
+
+# 3. Uygulamayı başlat
+docker compose up -d
+
+# 4. Doğrula
+curl -s -b "bgr_session=<oturum-çerezi>" http://localhost:3000/api/chat/health
+```
+
+Konteyner, host'taki Ollama'ya `host.docker.internal:11434` üzerinden bağlanır.
+
+> **Ollama.app kapalıysa asistan çalışmaz.** `/api/chat/health` bu durumu
+> açıkça bildirir. Ollama.app'i "oturum açıldığında başlat" olarak
+> ayarlamanız önerilir.
+
 ## Nasıl çalışır
 
 Model veritabanı üzerinde *eğitilmez* — eğitim (fine-tuning) her veri
@@ -101,11 +127,10 @@ Tümü ortam değişkenidir; model değiştirmek için **kod düzenlemek gerekme
 
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `OLLAMA_URL` | `http://llm:11434` | Ollama adresi |
+| `OLLAMA_URL` | `http://host.docker.internal:11434` | Hosttaki Ollama'nın adresi |
 | `OLLAMA_MODEL` | `gemma4:e4b` | Sohbet modeli |
-| `OLLAMA_EMBED_MODEL` | `none` | Gömme modeli. Varsayılan **kapalı** — bkz. Bellek |
+| `OLLAMA_EMBED_MODEL` | `embeddinggemma` | Gömme modeli (`none` → anlamsal arama kapalı) |
 | `OLLAMA_NUM_CTX` | `8192` | Context penceresi (token). Doğrudan bellek tüketir |
-| `OLLAMA_HOST_PORT` | `11435` | Ollama'nın host'a yayınlandığı port |
 | `OLLAMA_TEMPERATURE` | `0.15` | Düşük = daha tutarlı, uydurmaya daha az eğilimli |
 | `OLLAMA_TIMEOUT_MS` | `600000` | İstek zaman aşımı |
 | `AI_CONTEXT_BUDGET_CHARS` | otomatik | Bağlama konacak en fazla karakter |
@@ -125,11 +150,11 @@ Her durumda arayüzde sarı uyarı şeridi çıkar ve `meta` alanında sebep bil
 
 ## Bellek ve hız
 
-Konteynerin bellek ihtiyacı yalnızca model dosyasının boyutu değildir:
+Bellek ihtiyacı yalnızca model dosyasının boyutu değildir:
 
 ```
 gereken bellek  =  model ağırlıkları
-                +  KV cache          (num_ctx ile orantılı, birkaç GB olabilir)
+                +  KV cache          (num_ctx ile orantılı)
                 +  aynı anda yüklü diğer modeller (ör. gömme modeli)
 ```
 
@@ -137,39 +162,40 @@ Sınır aşılınca `llama-server` sessizce (SIGKILL) öldürülür. Belirtisi y
 yükleme sırasında `signal: killed`, ya da üretim ortasında **`unexpected EOF`**
 olur — logda gerekçe görünmez.
 
-Bu makinede (16 GB RAM, Docker'a 11.67 GB ayrılmış) ölçülenler:
+Bu makinede (16 GB RAM, M4) ölçülenler:
 
 | Yapılandırma | Sonuç |
 |---|---|
-| `gemma4:26b` (16.75 GB) | ✗ yüklenemedi |
-| `gemma4:e4b` + `num_ctx=32768` + gömme modeli açık | ✗ üretim ortasında `unexpected EOF` |
-| `gemma4:e4b` + `num_ctx=8192` + gömme kapalı | ✓ çalışıyor |
+| `gemma4:26b` (16.75 GB) | ✗ hiçbir kurulumda yüklenemedi |
+| Docker'da `gemma4:e4b` + `num_ctx=32768` + gömme açık | ✗ üretim ortasında `unexpected EOF` |
+| Docker'da `gemma4:e4b` + `num_ctx=8192` + gömme kapalı | ✓ çalışıyor, ama CPU'da yavaş |
+| **Hostta `gemma4:e4b` + `num_ctx=8192` + gömme açık** | ✓ **kullanılan kurulum** |
 
-Varsayılanlar bu yüzden `num_ctx=8192` ve `OLLAMA_EMBED_MODEL=none` seçilmiştir.
+> **Docker Desktop belleği:** Ollama artık konteynerde çalışmadığı için
+> Docker'ın büyük bir bellek payına ihtiyacı kalmadı. Settings → Resources →
+> Memory değerini **4 GB civarına indirin**; aksi hâlde Docker'ın ayırdığı pay
+> host'taki modele yer bırakmaz ve makine takas belleğine (swap) düşer.
 
 ### Hız
 
-Docker Desktop macOS'ta GPU'ya erişemez; modeller CPU'da çalışır. Ölçülen
-prompt işleme hızı **~50 token/sn**. Yanıt süresini belirleyen şey budur:
+Ölçülen prompt işleme hızları:
 
-| Bağlam | Yalnızca prompt işleme |
+| Kurulum | Prompt işleme |
 |---|---|
-| 14.000 karakter (~4.000 token) | ~80 sn |
-| 60.000 karakter (~17.000 token) | ~5,5 dk |
+| Docker (CPU), 32K pencere + gömme açık | ~40 token/sn |
+| Docker (CPU), 8K pencere + gömme kapalı | ~110 token/sn |
+| Host (Metal GPU) | bkz. `/api/chat` yanıtındaki `meta` |
 
-`AI_CONTEXT_BUDGET_MAX_CHARS` bu yüzden 14.000'de tutulur: sabitlenmiş özet
-blokları (şema + genel toplamlar + sıralamalar) her zaman gönderildiği için
-sayım/toplam/sıralama soruları bu bütçeyle de tam doğru yanıtlanır; bütçe
+Yanıt süresini belirleyen şey bağlamın büyüklüğüdür; bu yüzden
+`AI_CONTEXT_BUDGET_MAX_CHARS` bir tavan uygular. Sabitlenmiş bloklar
+(şema + genel toplamlar + durum kırılımları) her zaman gönderildiği için
+sayım/toplam/kırılım soruları bu bütçeyle de tam doğru yanıtlanır; bütçe
 yalnızca kaç ek **kayıt satırının** sığacağını belirler.
 
-**Belirgin hız için Ollama'yı hostta çalıştırın** (Metal GPU erişimi olur):
-`llm` servisini kaldırıp `OLLAMA_URL=http://host.docker.internal:11434`
-yapmak yeterlidir. O kurulumda `num_ctx` ve gömme modeli rahatça açılabilir.
-
-> **Port notu:** macOS'ta Ollama.app kuruluysa 11434'ü kendisi kapar ve
-> konteyner `address already in use` ile başlayamaz. Bu yüzden Docker'daki
-> Ollama host'a **11435**'ten yayınlanır (`OLLAMA_HOST_PORT` ile değişir).
-> Uygulama zaten Docker ağından `http://llm:11434` adresine bağlanır.
+**Türkçe token oranı:** ölçüm, 14.000 karakterin 6.498 token ettiğini gösterdi
+(token başına ~2.15 karakter). İngilizce için sık kullanılan ~4 karakter
+varsayımı burada bağlamın pencereye sığdığını sanıp taşmasına yol açar; kod
+2.0 kullanır.
 
 ## Sorun giderme
 
@@ -181,10 +207,9 @@ curl -s -b "bgr_session=<oturum-çerezi>" http://localhost:3000/api/chat/health 
 
 | Belirti | Sebep | Çözüm |
 |---|---|---|
-| `reachable: false` | Ollama kapalı ya da `OLLAMA_URL` yanlış | `docker compose up -d llm` |
+| `reachable: false` | Hosttaki Ollama kapalı | Ollama.app'i başlatın (ya da `ollama serve`) |
 | `signal: killed` | Model yüklenirken belleğe sığmadı | Docker belleğini artır ya da küçük model seç |
 | `unexpected EOF` | Model üretim ortasında öldürüldü | `OLLAMA_NUM_CTX`'i düşür, `OLLAMA_EMBED_MODEL=none` yap |
-| `address already in use` (11434) | Ollama.app portu kapmış | `OLLAMA_HOST_PORT` değiştir ya da Ollama.app'i kapat |
 | `fallback: true` | Yapılandırılan model kurulu değil | `ollama pull <model>` |
 | Anlamsal arama kapalı | Gömme modeli yok | `ollama pull embeddinggemma` |
 | Yanıtlar eski veriyi gösteriyor | — | `POST /api/chat/index` ile zorla tazele |

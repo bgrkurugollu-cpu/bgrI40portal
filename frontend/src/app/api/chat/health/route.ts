@@ -24,8 +24,12 @@ export async function GET() {
   const problems: string[] = [];
 
   if (!version) {
+    const onHost = aiConfig.baseUrl.includes('host.docker.internal');
     problems.push(
-      `Ollama'ya ${aiConfig.baseUrl} adresinden ulaşılamıyor. Sunucunun çalıştığından ve OLLAMA_URL değerinin doğru olduğundan emin olun.`
+      `Ollama'ya ${aiConfig.baseUrl} adresinden ulaşılamıyor.` +
+        (onHost
+          ? " Ollama bu kurulumda HOSTTA çalışır: Ollama.app'in açık olduğundan (ya da `ollama serve` çalıştığından) ve 11434 portunu dinlediğinden emin olun."
+          : ' Sunucunun çalıştığından ve OLLAMA_URL değerinin doğru olduğundan emin olun.')
     );
     return NextResponse.json(
       { ok: false, ollama: { url: aiConfig.baseUrl, reachable: false }, problems },
