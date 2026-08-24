@@ -50,11 +50,11 @@ services:
       # Anlamsal arama. GPU'lu host kurulumunda açık olması güvenlidir.
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-embeddinggemma}
 
-      # Context penceresi. Doğrudan bellek tüketir (KV cache, model
-      # ağırlıklarının üstüne biner). 16 GB'lık bir makinede 9.6 GB'lık bir
-      # modelle 8192 güvenli bir değerdir; daha fazla belleğiniz varsa
-      # yükseltip AI_CONTEXT_BUDGET_MAX_CHARS'ı da birlikte artırın.
-      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-8192}
+      # Context penceresi. Doğrudan bellek tüketir (KV cache) ve yanıt
+      # süresini belirler. Hostta GPU ile gemma4:e4b yalnızca ~3.2 GB yer
+      # kapladığı için 16384 rahatça sığar ve bağlama iki kat daha fazla
+      # kayıt girer. Düşürmek yanıtı hızlandırır, kapsamı daraltır.
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
       OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.15}
       OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-600000}
 

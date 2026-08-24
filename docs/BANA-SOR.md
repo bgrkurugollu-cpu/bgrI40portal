@@ -130,11 +130,11 @@ Tümü ortam değişkenidir; model değiştirmek için **kod düzenlemek gerekme
 | `OLLAMA_URL` | `http://host.docker.internal:11434` | Hosttaki Ollama'nın adresi |
 | `OLLAMA_MODEL` | `gemma4:e4b` | Sohbet modeli |
 | `OLLAMA_EMBED_MODEL` | `embeddinggemma` | Gömme modeli (`none` → anlamsal arama kapalı) |
-| `OLLAMA_NUM_CTX` | `8192` | Context penceresi (token). Doğrudan bellek tüketir |
+| `OLLAMA_NUM_CTX` | `16384` | Context penceresi (token). Kapsam/hız dengesini belirler |
 | `OLLAMA_TEMPERATURE` | `0.15` | Düşük = daha tutarlı, uydurmaya daha az eğilimli |
 | `OLLAMA_TIMEOUT_MS` | `600000` | İstek zaman aşımı |
 | `AI_CONTEXT_BUDGET_CHARS` | otomatik | Bağlama konacak en fazla karakter |
-| `AI_CONTEXT_BUDGET_MAX_CHARS` | `14000` | Yukarıdakinin tavanı. Yanıt süresini belirleyen asıl ayar |
+| `AI_CONTEXT_BUDGET_MAX_CHARS` | `24000` | Yukarıdakinin tavanı |
 | `AI_RETRIEVAL_TOP_K` | `60` | Değerlendirilecek aday parça sayısı |
 | `AI_FRESHNESS_CHECK_MS` | `3000` | Tazelik kontrolünün en sık aralığı |
 
@@ -164,12 +164,17 @@ olur — logda gerekçe görünmez.
 
 Bu makinede (16 GB RAM, M4) ölçülenler:
 
-| Yapılandırma | Sonuç |
-|---|---|
-| `gemma4:26b` (16.75 GB) | ✗ hiçbir kurulumda yüklenemedi |
-| Docker'da `gemma4:e4b` + `num_ctx=32768` + gömme açık | ✗ üretim ortasında `unexpected EOF` |
-| Docker'da `gemma4:e4b` + `num_ctx=8192` + gömme kapalı | ✓ çalışıyor, ama CPU'da yavaş |
-| **Hostta `gemma4:e4b` + `num_ctx=8192` + gömme açık** | ✓ **kullanılan kurulum** |
+| Yapılandırma | Bellek | Sonuç |
+|---|---|---|
+| `gemma4:26b` (16.75 GB) | — | ✗ hiçbir kurulumda yüklenemedi |
+| Docker (CPU), `num_ctx=32768`, gömme açık | > 11.67 GB | ✗ üretim ortasında `unexpected EOF` |
+| Docker (CPU), `num_ctx=8192`, gömme kapalı | 10.18 GB | ✓ çalışır, ama yavaş |
+| **Host (GPU), `num_ctx=16384`, gömme açık** | **3.9 GB** | ✓ **kullanılan kurulum** |
+
+Hostta belleğin bu kadar düşük olması şaşırtıcı değil: `gemma4:e4b` diskte
+9.6 GB olsa da "effective 4B" mimarisiyle GPU'ya yalnızca aktif katmanlar
+yüklenir (3.2 GB) — gömme modeliyle birlikte toplam 3.9 GB. Yani Docker'daki
+bellek darboğazı host kurulumunda tamamen ortadan kalkar.
 
 > **Docker Desktop belleği:** Ollama artık konteynerde çalışmadığı için
 > Docker'ın büyük bir bellek payına ihtiyacı kalmadı. Settings → Resources →
@@ -180,11 +185,16 @@ Bu makinede (16 GB RAM, M4) ölçülenler:
 
 Ölçülen prompt işleme hızları:
 
-| Kurulum | Prompt işleme |
-|---|---|
-| Docker (CPU), 32K pencere + gömme açık | ~40 token/sn |
-| Docker (CPU), 8K pencere + gömme kapalı | ~110 token/sn |
-| Host (Metal GPU) | bkz. `/api/chat` yanıtındaki `meta` |
+| Kurulum | Prompt işleme | Üretim |
+|---|---|---|
+| Docker (CPU), 32K pencere + gömme açık | ~40 token/sn | — |
+| Docker (CPU), 8K pencere + gömme kapalı | ~110 token/sn | — |
+| **Host (Metal GPU)** | **~340 token/sn** | **~28 token/sn** |
+
+Uçtan uca ölçülen yanıt süreleri (host, GPU, 16K pencere, ~18.000 karakter
+bağlam): **40-47 saniye**. 8K pencerede (~9.000 karakter) bu süre 30 saniyeye
+iner ama bağlama yarı yarıya daha az kayıt girer — `OLLAMA_NUM_CTX` ile
+kapsam/hız dengesini kendiniz kurabilirsiniz.
 
 Yanıt süresini belirleyen şey bağlamın büyüklüğüdür; bu yüzden
 `AI_CONTEXT_BUDGET_MAX_CHARS` bir tavan uygular. Sabitlenmiş bloklar

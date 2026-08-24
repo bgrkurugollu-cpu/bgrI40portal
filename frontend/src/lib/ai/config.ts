@@ -47,7 +47,7 @@ export const aiConfig = {
    * + yanıtı rahatça alacak şekilde seçilmiştir. Modelin desteklediği pencere
    * daha büyük olsa bile (ör. gemma4:e4b'de 131072) bu değer kullanılır.
    */
-  numCtx: num('OLLAMA_NUM_CTX', 8192),
+  numCtx: num('OLLAMA_NUM_CTX', 16384),
 
   temperature: num('OLLAMA_TEMPERATURE', 0.15),
   topP: num('OLLAMA_TOP_P', 0.9),
@@ -75,7 +75,7 @@ export const aiConfig = {
     if (explicit > 0) return explicit;
     // 2.0 karakter/token: Türkçe metnin ölçülen oranı (bkz. route.ts).
     const fromWindow = Math.floor(this.numCtx * 2.0 * 0.55);
-    return Math.min(fromWindow, num('AI_CONTEXT_BUDGET_MAX_CHARS', 14_000));
+    return Math.min(fromWindow, num('AI_CONTEXT_BUDGET_MAX_CHARS', 24_000));
   },
 
   /** Anlamsal aramada aday olarak değerlendirilecek kayıt sayısı. */
