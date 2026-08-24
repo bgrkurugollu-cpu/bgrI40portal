@@ -109,6 +109,8 @@ export function ProjectDetailClient(props: {
   const actualTotal = props.assignments.reduce((s, a) => s + a.actualDays, 0);
   // Bütçe kalemleri farklı para biriminde olabilir; toplam TL karşılığı üzerinden.
   const budgetTotal = props.budgetItems.reduce((s, b) => s + b.amountTRY, 0);
+  // Proje cirosu: projenin tüm yıllarındaki aylık gelir + iç kaynak geliri toplamı.
+  const ciro = props.financials.reduce((s, f) => s + f.incomeTRY + f.internalIncomeTRY, 0);
 
   return (
     <div className="space-y-6">
@@ -154,8 +156,9 @@ export function ProjectDetailClient(props: {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
+        <StatCard label="Proje Cirosu" value={formatMoney(ciro)} />
         <StatCard label="Bütçe Kırılımı (TL karşılığı)" value={formatMoney(budgetTotal)} />
         <StatCard label="Planlanan Efor" value={`${plannedTotal.toFixed(0)} adam-gün`} />
         <StatCard
@@ -584,11 +587,11 @@ function MonthlyTab({
         </div>
         <div className="mb-4 grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-success/10 px-4 py-3">
-            <div className="text-xs font-medium text-success">Yıllık Gelir (TL)</div>
+            <div className="text-xs font-medium text-success">PT Yıllık Gelir (TL)</div>
             <div className="text-lg font-bold">{formatMoney(totals.income)}</div>
           </div>
           <div className="rounded-lg bg-destructive/10 px-4 py-3">
-            <div className="text-xs font-medium text-destructive">Yıllık Gider (TL)</div>
+            <div className="text-xs font-medium text-destructive">PT Yıllık Gider (TL)</div>
             <div className="text-lg font-bold">{formatMoney(totals.expense)}</div>
           </div>
           <div className="rounded-lg bg-accent px-4 py-3">
