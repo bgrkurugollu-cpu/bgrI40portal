@@ -44,6 +44,7 @@ import {
   exportBudgetItemsToExcel,
   downloadBudgetTemplate,
   type ImportedBudgetItem,
+  type BudgetExpenseType,
 } from "@/lib/budget-import";
 import type {
   AssignmentDTO,
@@ -413,6 +414,24 @@ function BudgetTab({
   const yearItems = useMemo(() => budgetItems.filter((b) => b.year === year), [budgetItems, year]);
   // Toplam TL karşılığı üzerinden (kalemler farklı para biriminde olabilir).
   const totalTRY = yearItems.reduce((s, b) => s + b.amountTRY, 0);
+  // CAPEX/OPEX toplamları, para birimi çevrilmeden, para birimi bazında ayrı ayrı.
+  const typeCurrencyTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of yearItems) {
+      const key = `${b.expenseType}|${b.currency}`;
+      map.set(key, (map.get(key) ?? 0) + b.amount);
+    }
+    return Array.from(map.entries())
+      .map(([key, amount]) => {
+        const [expenseType, currency] = key.split("|") as [BudgetExpenseType, CurrencyCode];
+        return { expenseType, currency, amount };
+      })
+      .sort((a, b) =>
+        a.expenseType === b.expenseType
+          ? a.currency.localeCompare(b.currency)
+          : a.expenseType.localeCompare(b.expenseType)
+      );
+  }, [yearItems]);
 
   // Form önizlemesi: Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
   const [formQuantity, setFormQuantity] = useState(1);
@@ -429,6 +448,7 @@ function BudgetTab({
     await addBudgetItem({
       projectId: project.id,
       year: Number(fd.get("year")) || year,
+      expenseType: (fd.get("expenseType") as BudgetExpenseType) || "CAPEX",
       category: String(fd.get("category")),
       description: String(fd.get("description")),
       supplier: (fd.get("supplier") as string) || undefined,
@@ -482,6 +502,7 @@ function BudgetTab({
         <Table>
           <THead>
             <TR>
+              <TH>Tip</TH>
               <TH>Kategori</TH>
               <TH>Açıklama</TH>
               <TH>Tedarikçi</TH>
@@ -498,6 +519,11 @@ function BudgetTab({
           <TBody>
             {yearItems.map((b) => (
               <TR key={b.id}>
+                <TD>
+                  <Badge tone={b.expenseType === "OPEX" ? "warning" : "default"}>
+                    {b.expenseType}
+                  </Badge>
+                </TD>
                 <TD>
                   <Badge tone="info">{b.category}</Badge>
                 </TD>
@@ -535,7 +561,7 @@ function BudgetTab({
             ))}
             {yearItems.length === 0 && (
               <TR>
-                <TD colSpan={11} className="py-8 text-center text-muted-foreground">
+                <TD colSpan={12} className="py-8 text-center text-muted-foreground">
                   {year} yılı için bütçe kalemi eklenmemiş.
                 </TD>
               </TR>
@@ -543,15 +569,38 @@ function BudgetTab({
           </TBody>
         </Table>
         {yearItems.length > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm">
-            <span className="font-medium">
-              Toplam (TL karşılığı) — Hedef bütçenin %
-              {project.targetBudget > 0
-                ? Math.round((totalTRY / project.targetBudget) * 100)
-                : 0}
-              &apos;i
-            </span>
-            <span className="text-base font-bold">{formatMoney(totalTRY)}</span>
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {typeCurrencyTotals.map(({ expenseType, currency, amount }) => (
+                <div
+                  key={`${expenseType}-${currency}`}
+                  className={cn(
+                    "rounded-lg px-4 py-3",
+                    expenseType === "OPEX" ? "bg-warning/10" : "bg-accent"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "text-xs font-medium",
+                      expenseType === "OPEX" ? "text-warning" : "text-primary"
+                    )}
+                  >
+                    {expenseType} {currency}
+                  </div>
+                  <div className="mt-0.5 text-base font-bold">{formatMoney(amount, currency)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm">
+              <span className="font-medium">
+                Toplam (TL karşılığı) — Hedef bütçenin %
+                {project.targetBudget > 0
+                  ? Math.round((totalTRY / project.targetBudget) * 100)
+                  : 0}
+                &apos;i
+              </span>
+              <span className="text-base font-bold">{formatMoney(totalTRY)}</span>
+            </div>
           </div>
         )}
       </CardContent>
@@ -562,6 +611,13 @@ function BudgetTab({
             <div>
               <Label>Yıl</Label>
               <Input name="year" type="number" min={2000} max={2100} defaultValue={year} required />
+            </div>
+            <div>
+              <Label>Tip</Label>
+              <Select name="expenseType" defaultValue="CAPEX">
+                <option value="CAPEX">CAPEX</option>
+                <option value="OPEX">OPEX</option>
+              </Select>
             </div>
             <div>
               <Label>Kategori</Label>
@@ -774,6 +830,7 @@ function BudgetImportDialog({
             <Table>
               <THead>
                 <TR>
+                  <TH>Tip</TH>
                   <TH>Kategori</TH>
                   <TH>Açıklama</TH>
                   <TH>Tedarikçi</TH>
@@ -785,6 +842,7 @@ function BudgetImportDialog({
               <TBody>
                 {parsed.slice(0, 8).map((it, i) => (
                   <TR key={i}>
+                    <TD>{it.expenseType}</TD>
                     <TD>{it.category}</TD>
                     <TD>{it.description}</TD>
                     <TD className="text-muted-foreground">{it.supplier || "—"}</TD>

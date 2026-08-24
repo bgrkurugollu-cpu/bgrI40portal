@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import type { Currency, InvoiceStatus } from "@prisma/client";
+import type { BudgetExpenseType, Currency, InvoiceStatus } from "@prisma/client";
 
 // Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
 const INCOME_MARKUP = 1.05;
@@ -58,6 +58,7 @@ export async function upsertMonthlyFinancial(input: {
 export async function addBudgetItem(input: {
   projectId: string;
   year: number;
+  expenseType: BudgetExpenseType;
   category: string;
   description: string;
   supplier?: string;
@@ -89,6 +90,7 @@ export async function deleteBudgetItem(id: string, projectId: string) {
 }
 
 export type ImportedBudgetItem = {
+  expenseType: BudgetExpenseType;
   category: string;
   description: string;
   supplier?: string;
@@ -113,6 +115,7 @@ export async function importBudgetItemsForProject(
     data: items.map((it) => ({
       projectId,
       year: it.year,
+      expenseType: it.expenseType,
       category: it.category,
       description: it.description,
       supplier: it.supplier,

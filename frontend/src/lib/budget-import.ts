@@ -15,7 +15,10 @@ import * as XLSX from "xlsx";
 import type { BudgetItemDTO } from "./types";
 import type { CurrencyCode } from "./utils";
 
+export type BudgetExpenseType = "CAPEX" | "OPEX";
+
 export type ImportedBudgetItem = {
+  expenseType: BudgetExpenseType;
   category: string;
   description: string;
   supplier?: string;
@@ -37,6 +40,7 @@ export type BudgetImportResult = {
 const VALID_CURRENCIES: CurrencyCode[] = ["TRY", "USD", "EUR", "GBP"];
 
 type Field =
+  | "expenseType"
   | "category"
   | "description"
   | "supplier"
@@ -62,6 +66,7 @@ function normalizeHeader(h: string): string {
 // Sıra önemli: daha spesifik olanlar (örn. "birim maliyet") önce denenmeli,
 // aksi halde "birim" alias'ı "birim maliyet"i de yanlışlıkla eşleştirir.
 const HEADER_RULES: { field: Field; test: (h: string) => boolean }[] = [
+  { field: "expenseType", test: (h) => h === "tip" || h === "capex/opex" || h === "capex / opex" },
   { field: "category", test: (h) => h === "kategori" },
   { field: "supplier", test: (h) => h.includes("tedarikçi") },
   {
@@ -212,8 +217,11 @@ export function parseBudgetWorkbook(wb: XLSX.WorkBook): BudgetImportResult {
     }
 
     const yearCell = row.year ? cellNumber(row.year) : 0;
+    const expenseTypeText = cellText(row.expenseType).toUpperCase();
+    const expenseType: BudgetExpenseType = expenseTypeText === "OPEX" ? "OPEX" : "CAPEX";
 
     items.push({
+      expenseType,
       category: hasExplicitCategory ? cellText(row.category) || "Genel" : currentCategory,
       description,
       supplier: supplier || undefined,
@@ -256,6 +264,7 @@ export function parseBudgetExcelFile(file: File): Promise<BudgetImportResult> {
 }
 
 const TEMPLATE_HEADERS = [
+  "Tip",
   "Kategori",
   "Açıklama",
   "Tedarikçi",
@@ -271,12 +280,12 @@ const TEMPLATE_HEADERS = [
 ];
 
 const TEMPLATE_EXAMPLES: (string | number)[][] = [
-  ["Donanım", "Endüstriyel PC ve sunucular", "Altis", "ad", 6, 85000, 510000, "TRY", "", 5, 535500, 2026],
-  ["Yazılım", "MES lisansları", "ETZEL", "ad", 1, 18000, 18000, "USD", "Yıllık yenileme", 0, 18000, 2026],
+  ["CAPEX", "Donanım", "Endüstriyel PC ve sunucular", "Altis", "ad", 6, 85000, 510000, "TRY", "", 5, 535500, 2026],
+  ["OPEX", "Yazılım", "MES lisansları (yıllık abonelik)", "ETZEL", "ad", 1, 18000, 18000, "USD", "Yıllık yenileme", 0, 18000, 2026],
 ];
 
 const TEMPLATE_NOTES =
-  "Yıl: bütçe kaleminin ait olduğu yıl (örn. 2026)  |  Para Birimi: TRY / USD / EUR / GBP  |  " +
+  "Tip: CAPEX veya OPEX (boş bırakılırsa CAPEX)  |  Yıl: bütçe kaleminin ait olduğu yıl (örn. 2026)  |  Para Birimi: TRY / USD / EUR / GBP  |  " +
   "Tutar = Miktar × Birim Fiyat  |  TF (Transfer Fiyatı) = Tutar × (1 + TF%/100)  |  " +
   "Tedarikçi teklif formatları da (Tedarikçi, Miktar, Birim, Birim Maliyet (KDV Hariç), Not, TF %, TF (Transfer Fiyatı) sütunlu) doğrudan yüklenebilir — Kategori sütunu yoksa bölüm başlığı satırları kategori olarak kullanılır.";
 
@@ -301,6 +310,7 @@ export function exportBudgetItemsToExcel(
   fileNameHint: string
 ) {
   const headers = [
+    "Tip",
     "Kategori",
     "Açıklama",
     "Tedarikçi",
@@ -315,6 +325,7 @@ export function exportBudgetItemsToExcel(
     "Yıl",
   ];
   const rows = items.map((b) => [
+    b.expenseType,
     b.category,
     b.description,
     b.supplier ?? "",

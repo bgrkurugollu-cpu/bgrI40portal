@@ -87,6 +87,7 @@ export default async function ProjectDetailPage({
     return {
       id: b.id,
       year: b.year,
+      expenseType: b.expenseType,
       category: b.category,
       description: b.description,
       supplier: b.supplier,

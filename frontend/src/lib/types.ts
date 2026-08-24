@@ -53,6 +53,7 @@ export type BudgetItemDTO = {
   projectCode?: string;
   projectName?: string;
   year: number;
+  expenseType: "CAPEX" | "OPEX";
   category: string;
   description: string;
   supplier: string | null;
