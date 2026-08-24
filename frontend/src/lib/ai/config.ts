@@ -26,13 +26,32 @@ export const aiConfig = {
   model: str('OLLAMA_MODEL', 'gemma4:e4b'),
 
   /**
-   * Gömme (embedding) modeli. Kuruluysa anlamsal arama devreye girer,
-   * kurulu değilse sistem otomatik olarak sadece sözcük tabanlı aramaya düşer.
+   * Gömme (embedding) modeli — anlamsal arama için. `none` ise kapalıdır ve
+   * sistem yalnızca sözcük tabanlı aramayla çalışır.
+   *
+   * Varsayılan KAPALIDIR. Sebebi bellek: Ollama gömme modelini sohbet
+   * modelinin YANINDA bellekte tutar (KEEP_ALIVE süresince). GPU'suz, belleği
+   * sınırlı bir Docker kurulumunda bu ikisi birlikte sınırı aşar ve sohbet
+   * modelinin süreci sessizce öldürülür ("unexpected EOF").
+   *
+   * Bolca belleğiniz varsa ya da Ollama'yı hostta (GPU'lu) çalıştırıyorsanız
+   * `OLLAMA_EMBED_MODEL=embeddinggemma` ile açın; geri getirisi, kelimesi
+   * geçmeyen sorularda daha iyi isabettir.
    */
-  embedModel: str('OLLAMA_EMBED_MODEL', 'embeddinggemma'),
+  embedModel: str('OLLAMA_EMBED_MODEL', 'none'),
 
-  /** Modelin context penceresi (token). */
-  numCtx: num('OLLAMA_NUM_CTX', 32768),
+  /**
+   * Modelin context penceresi (token).
+   *
+   * Bu değer doğrudan bellek tüketir: Ollama, pencere boyutunda bir KV cache
+   * ayırır ve bu, model ağırlıklarının ÜSTÜNE binen birkaç GB olabilir.
+   * Gereğinden büyük seçmek, modelin belleğe sığmamasına yol açar.
+   *
+   * Varsayılan, `contextBudgetChars` ile gönderilen bağlamı + sohbet geçmişini
+   * + yanıtı rahatça alacak şekilde seçilmiştir. Modelin desteklediği pencere
+   * daha büyük olsa bile (ör. gemma4:e4b'de 131072) bu değer kullanılır.
+   */
+  numCtx: num('OLLAMA_NUM_CTX', 8192),
 
   temperature: num('OLLAMA_TEMPERATURE', 0.15),
   topP: num('OLLAMA_TOP_P', 0.9),
@@ -41,14 +60,26 @@ export const aiConfig = {
   requestTimeoutMs: num('OLLAMA_TIMEOUT_MS', 600_000),
 
   /**
-   * Veritabanı dökümünden prompt'a en fazla kaç karakter konacağı.
-   * Varsayılan: context penceresinin ~%55'i (1 token ≈ 3.5 karakter),
-   * geri kalanı sohbet geçmişi ve yanıt için ayrılır.
+   * Bilgi tabanından prompt'a en fazla kaç karakter konacağı.
+   *
+   * Bu değer doğrudan yanıt süresini belirler: model önce tüm prompt'u
+   * işlemek zorundadır ve GPU'suz bir Docker konteynerinde bu ~40 token/sn
+   * hızındadır. 60.000 karakterlik bir bağlam, tek kelime üretilmeden önce
+   * ~4 dakika demektir.
+   *
+   * Bu yüzden varsayılan, modelin penceresi çok daha büyük olsa bile
+   * `AI_CONTEXT_BUDGET_MAX_CHARS` ile sınırlanır. Sabitlenmiş özet blokları
+   * (şema + genel toplamlar + sıralamalar) küçüktür ve her zaman gönderilir;
+   * bütçe yalnızca kaç ek kaydın sığacağını belirler.
+   *
+   * GPU'lu bir kurulumda (Ollama hostta) bu tavan rahatlıkla yükseltilebilir.
    */
   get contextBudgetChars(): number {
     const explicit = num('AI_CONTEXT_BUDGET_CHARS', 0);
     if (explicit > 0) return explicit;
-    return Math.floor(this.numCtx * 3.5 * 0.55);
+    // 2.0 karakter/token: Türkçe metnin ölçülen oranı (bkz. route.ts).
+    const fromWindow = Math.floor(this.numCtx * 2.0 * 0.55);
+    return Math.min(fromWindow, num('AI_CONTEXT_BUDGET_MAX_CHARS', 14_000));
   },
 
   /** Anlamsal aramada aday olarak değerlendirilecek kayıt sayısı. */

@@ -363,6 +363,61 @@ function rankingChunks(loaded: LoadedModel[]): Chunk[] {
   return chunks;
 }
 
+/**
+ * Durum/kategori bazında SAYI + TOPLAM kırılımı.
+ *
+ * Genel özet, sayıları enum değerine göre kırar ve tutarları ayrıca toplar;
+ * ama ikisini çaprazlamaz. Bu yüzden "kesilecek faturaların toplam tutarı"
+ * gibi son derece doğal bir soru, hazır rakamlardan yanıtlanamıyordu.
+ * Burada her enum alanı için değer bazında hem sayı hem de sayısal alan
+ * toplamları üretilir.
+ */
+function breakdownChunks(loaded: LoadedModel[]): Chunk[] {
+  const chunks: Chunk[] = [];
+
+  for (const { model, rows } of loaded) {
+    if (rows.length === 0) continue;
+
+    const numerics = numericFieldsOf(model);
+    if (numerics.length === 0) continue;
+
+    const hasCurrency = model.scalars.some((s) => s.name === 'currency');
+    const enums = model.scalars.filter((s) => s.isEnum && s.name !== 'currency');
+
+    for (const field of enums) {
+      const byValue = new Map<string, any[]>();
+      for (const row of rows) {
+        const key = enumLabel(model.name, String(row[field.name]));
+        if (!byValue.has(key)) byValue.set(key, []);
+        byValue.get(key)!.push(row);
+      }
+      if (byValue.size < 2) continue;
+
+      const lines: string[] = [];
+      for (const [value, group] of byValue) {
+        const parts = [`${group.length} kayıt`];
+        for (const numeric of numerics) {
+          parts.push(`toplam ${numeric.label}: ${sumByCurrency(group, numeric.name, hasCurrency)}`);
+        }
+        lines.push(`${value}: ${parts.join(', ')}`);
+      }
+
+      const head = `[KIRILIM] ${model.label} — ${field.label} bazında sayı ve toplamlar`;
+      chunks.push({
+        id: `breakdown:${model.name}:${field.name}`,
+        kind: 'summary',
+        model: model.name,
+        title: head,
+        text: `${head}\n${lines.map((l) => `  ${l}`).join('\n')}`,
+        // Küçük ve yüksek değerli: her soruda gönderilir.
+        pinned: true,
+      });
+    }
+  }
+
+  return chunks;
+}
+
 /** Tüm veritabanının tek sayfalık genel özeti — her soruda gönderilir. */
 function globalSummary(loaded: LoadedModel[]): Chunk {
   const lines: string[] = [];
@@ -481,6 +536,7 @@ export async function buildKnowledge(): Promise<Knowledge> {
       pinned: true,
     },
     globalSummary(loaded),
+    ...breakdownChunks(loaded),
     ...periodChunks(loaded),
     ...rankingChunks(loaded),
     ...rollupChunks(loaded),

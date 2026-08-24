@@ -31,8 +31,17 @@ export const dynamic = 'force-dynamic';
 
 /** Context penceresinin bağlama ayrılan payı; gerisi sohbet geçmişi ve yanıt için. */
 const CONTEXT_SHARE = 0.55;
-/** Kaba token→karakter oranı (Türkçe metinde ~3.5 karakter ≈ 1 token). */
-const CHARS_PER_TOKEN = 3.5;
+/**
+ * Karakter → token dönüşüm oranı.
+ *
+ * Ölçüm: bu veritabanının Türkçe bağlamında 14.000 karakter 6.498 token etti,
+ * yani token başına ~2.15 karakter. Türkçe, İngilizceye göre çok daha kötü
+ * tokenize olur (ekler ayrı token'lara bölünür); İngilizce için sık kullanılan
+ * ~4 karakter varsayımı burada bağlamın pencereye sığdığını sanıp taşmasına
+ * ve sessizce kırpılmasına yol açar. Güvenli tarafta kalmak için 2.15 değil
+ * 2.0 alınır.
+ */
+const CHARS_PER_TOKEN = 2.0;
 
 interface IncomingMessage {
   role?: string;

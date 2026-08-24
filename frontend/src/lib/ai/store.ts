@@ -123,7 +123,10 @@ async function fillEmbeddings(index: KnowledgeIndex): Promise<void> {
   }
   index.embeddedCount = index.chunks.filter((c) => c.vector).length;
 
-  const BATCH = 16;
+  // Küçük partiler: her parti Ollama'da sıraya girer ve süren bir partiyi
+  // bölemeyiz. Parti ne kadar küçükse, araya giren bir kullanıcı sorusu o
+  // kadar az bekler (parti başına ~1-2 sn).
+  const BATCH = 4;
   try {
     for (let i = 0; i < pending.length; i += BATCH) {
       // Bu indeks artık güncel değilse boşuna hesaplama yapma.

@@ -44,7 +44,9 @@ export async function GET() {
   }
 
   const embedModel = await resolveEmbedModel();
-  if (!embedModel) {
+  // "none" bilinçli bir tercihtir (bellek tasarrufu); sorun olarak raporlanmaz.
+  const embeddingDisabled = !aiConfig.embedModel || aiConfig.embedModel.toLowerCase() === 'none';
+  if (!embedModel && !embeddingDisabled) {
     problems.push(
       `Gömme modeli "${aiConfig.embedModel}" kurulu değil. Asistan çalışır ancak anlamsal arama yerine sözcük tabanlı arama kullanır. Kurmak için: ollama pull ${aiConfig.embedModel}`
     );
@@ -64,7 +66,17 @@ export async function GET() {
           modelContextLength: await getModelContextLength(chatModel.name),
         }
       : null,
-    embedding: { requested: aiConfig.embedModel, using: embedModel, enabled: !!embedModel },
+    embedding: {
+      requested: aiConfig.embedModel,
+      using: embedModel,
+      enabled: !!embedModel,
+      // Kapalıysa sebebi: ayarla kapatıldı mı, yoksa model bulunamadı mı?
+      note: embeddingDisabled
+        ? 'Anlamsal arama ayarla kapatılmış (OLLAMA_EMBED_MODEL=none); sözcük tabanlı arama kullanılıyor.'
+        : embedModel
+          ? null
+          : 'Gömme modeli bulunamadı; sözcük tabanlı aramaya düşüldü.',
+    },
     limits: {
       numCtx: aiConfig.numCtx,
       contextBudgetChars: aiConfig.contextBudgetChars,
