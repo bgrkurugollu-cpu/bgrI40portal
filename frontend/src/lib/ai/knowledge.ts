@@ -257,6 +257,112 @@ function rollupChunks(loaded: LoadedModel[]): Chunk[] {
   return chunks;
 }
 
+/**
+ * "En yüksek/en düşük" ve "en yakın/en son" sorularının yanıtlarını önceden
+ * hesaplar.
+ *
+ * Bu tür sorular modelden onlarca kaydı sıralamasını ister; küçük modeller
+ * bunu güvenilir yapamaz ve büyük modeller de hata yapabilir. Sıralamayı
+ * burada bir kez yapıp hazır liste olarak sunmak, toplamları önceden
+ * hesaplamakla aynı mantıktır: modele akıl yürütme değil, okuma işi bırakılır.
+ */
+function rankingChunks(loaded: LoadedModel[]): Chunk[] {
+  const chunks: Chunk[] = [];
+  const TOP_N = 10;
+
+  const push = (
+    model: ModelInfo,
+    id: string,
+    head: string,
+    rows: any[],
+    render: (row: any) => string
+  ) => {
+    if (rows.length === 0) return;
+    const lines = rows.map((row, i) => `${i + 1}. ${label(model, row)} — ${render(row)}`);
+    chunks.push({
+      id,
+      kind: 'summary',
+      model: model.name,
+      title: head,
+      text: `${head}\n${lines.map((l) => `  ${l}`).join('\n')}`,
+      pinned: false,
+    });
+  };
+
+  for (const { model, rows } of loaded) {
+    if (rows.length < 2) continue;
+    const hasCurrency = model.scalars.some((s) => s.name === 'currency');
+
+    // Sayısal alanlar: en yüksek ve en düşük.
+    for (const field of numericFieldsOf(model)) {
+      // Para birimi varsa karışık birimleri sıralamak anlamsız; ayrı ayrı sırala.
+      const groups = hasCurrency
+        ? [...new Set(rows.map((r) => String(r.currency ?? 'TRY')))].map((cur) => ({
+            suffix: ` (${cur})`,
+            key: cur,
+            list: rows.filter((r) => String(r.currency ?? 'TRY') === cur),
+          }))
+        : [{ suffix: '', key: 'all', list: rows }];
+
+      for (const group of groups) {
+        const valued = group.list.filter((r) => Number(r[field.name] ?? 0) !== 0);
+        if (valued.length < 2) continue;
+
+        const desc = [...valued].sort((a, b) => Number(b[field.name]) - Number(a[field.name]));
+        const render = (row: any) =>
+          `${field.label}: ${money(row[field.name])}${hasCurrency ? ` ${row.currency}` : ''}`;
+
+        push(
+          model,
+          `rank:${model.name}:${field.name}:${group.key}:desc`,
+          `[SIRALAMA] ${model.label} — ${field.label} en yüksek ${Math.min(TOP_N, desc.length)}${group.suffix}`,
+          desc.slice(0, TOP_N),
+          render
+        );
+
+        if (desc.length > TOP_N) {
+          push(
+            model,
+            `rank:${model.name}:${field.name}:${group.key}:asc`,
+            `[SIRALAMA] ${model.label} — ${field.label} en düşük ${TOP_N}${group.suffix}`,
+            [...desc].reverse().slice(0, TOP_N),
+            render
+          );
+        }
+      }
+    }
+
+    // Tarih alanları: en yakın (erken) ve en son (geç).
+    for (const field of model.scalars.filter((s) => s.type === 'DateTime' && !s.isRedacted)) {
+      if (field.name === 'createdAt' || field.name === 'updatedAt') continue;
+
+      const dated = rows
+        .filter((r) => r[field.name])
+        .sort((a, b) => new Date(a[field.name]).getTime() - new Date(b[field.name]).getTime());
+      if (dated.length < 2) continue;
+
+      const render = (row: any) => `${field.label}: ${fmtDate(row[field.name])}`;
+
+      push(
+        model,
+        `rank:${model.name}:${field.name}:earliest`,
+        `[SIRALAMA] ${model.label} — ${field.label} en erken/en yakın ${Math.min(TOP_N, dated.length)}`,
+        dated.slice(0, TOP_N),
+        render
+      );
+      push(
+        model,
+        `rank:${model.name}:${field.name}:latest`,
+        `[SIRALAMA] ${model.label} — ${field.label} en geç/en son ${Math.min(TOP_N, dated.length)}`,
+        [...dated].reverse().slice(0, TOP_N),
+        render
+      );
+    }
+  }
+
+  return chunks;
+}
+
 /** Tüm veritabanının tek sayfalık genel özeti — her soruda gönderilir. */
 function globalSummary(loaded: LoadedModel[]): Chunk {
   const lines: string[] = [];
@@ -376,6 +482,7 @@ export async function buildKnowledge(): Promise<Knowledge> {
     },
     globalSummary(loaded),
     ...periodChunks(loaded),
+    ...rankingChunks(loaded),
     ...rollupChunks(loaded),
   ];
 
