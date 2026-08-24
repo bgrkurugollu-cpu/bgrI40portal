@@ -255,6 +255,47 @@ export function parseBudgetExcelFile(file: File): Promise<BudgetImportResult> {
   });
 }
 
+const TEMPLATE_HEADERS = [
+  "Kategori",
+  "Açıklama",
+  "Tedarikçi",
+  "Birim",
+  "Miktar",
+  "Birim Fiyat",
+  "Tutar",
+  "Para Birimi",
+  "Not",
+  "TF %",
+  "TF (Transfer Fiyatı)",
+  "Yıl",
+];
+
+const TEMPLATE_EXAMPLES: (string | number)[][] = [
+  ["Donanım", "Endüstriyel PC ve sunucular", "Altis", "ad", 6, 85000, 510000, "TRY", "", 5, 535500, 2026],
+  ["Yazılım", "MES lisansları", "ETZEL", "ad", 1, 18000, 18000, "USD", "Yıllık yenileme", 0, 18000, 2026],
+];
+
+const TEMPLATE_NOTES =
+  "Yıl: bütçe kaleminin ait olduğu yıl (örn. 2026)  |  Para Birimi: TRY / USD / EUR / GBP  |  " +
+  "Tutar = Miktar × Birim Fiyat  |  TF (Transfer Fiyatı) = Tutar × (1 + TF%/100)  |  " +
+  "Tedarikçi teklif formatları da (Tedarikçi, Miktar, Birim, Birim Maliyet (KDV Hariç), Not, TF %, TF (Transfer Fiyatı) sütunlu) doğrudan yüklenebilir — Kategori sütunu yoksa bölüm başlığı satırları kategori olarak kullanılır.";
+
+export function downloadBudgetTemplate() {
+  const rows: (string | number)[][] = [
+    [`⚠️ ${TEMPLATE_NOTES}`],
+    TEMPLATE_HEADERS,
+    ...TEMPLATE_EXAMPLES,
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = TEMPLATE_HEADERS.map((h, i) => {
+    const maxLen = Math.max(h.length, ...TEMPLATE_EXAMPLES.map((r) => String(r[i] ?? "").length));
+    return { wch: Math.min(maxLen + 4, 50) };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Bütçe Kırılımı");
+  XLSX.writeFile(wb, "butce_kirilimi_sablonu.xlsx");
+}
+
 export function exportBudgetItemsToExcel(
   items: BudgetItemDTO[],
   fileNameHint: string

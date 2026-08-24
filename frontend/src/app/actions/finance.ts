@@ -67,13 +67,16 @@ export async function addBudgetItem(input: {
   currency: Currency;
   note?: string;
   transferFeePercent?: number;
-  transferPrice?: number;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
 
+  // Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
+  const amount = input.quantity * input.unitPrice;
+  const transferPrice = amount * (1 + (input.transferFeePercent ?? 0) / 100);
+
   await prisma.budgetItem.create({
-    data: { ...input, amount: input.quantity * input.unitPrice },
+    data: { ...input, amount, transferPrice },
   });
   revalidatePath(`/projects/${input.projectId}`);
 }

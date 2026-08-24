@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -42,6 +42,7 @@ import {
 import {
   parseBudgetExcelFile,
   exportBudgetItemsToExcel,
+  downloadBudgetTemplate,
   type ImportedBudgetItem,
 } from "@/lib/budget-import";
 import type {
@@ -73,12 +74,18 @@ import {
 function CurrencySelect({
   name,
   defaultValue = "TRY",
+  value,
+  onChange,
 }: {
   name: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
 }) {
+  const controlledProps =
+    value !== undefined ? { value, onChange } : { defaultValue };
   return (
-    <Select name={name} defaultValue={defaultValue}>
+    <Select name={name} {...controlledProps}>
       {CURRENCIES.map((c) => (
         <option key={c} value={c}>
           {CURRENCY_LABELS[c]}
@@ -407,6 +414,14 @@ function BudgetTab({
   // Toplam TL karşılığı üzerinden (kalemler farklı para biriminde olabilir).
   const totalTRY = yearItems.reduce((s, b) => s + b.amountTRY, 0);
 
+  // Form önizlemesi: Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
+  const [formQuantity, setFormQuantity] = useState(1);
+  const [formUnitPrice, setFormUnitPrice] = useState(0);
+  const [formTransferFeePercent, setFormTransferFeePercent] = useState(0);
+  const [formCurrency, setFormCurrency] = useState<CurrencyCode>("TRY");
+  const formAmount = formQuantity * formUnitPrice;
+  const formTransferPrice = formAmount * (1 + formTransferFeePercent / 100);
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -425,10 +440,12 @@ function BudgetTab({
       transferFeePercent: fd.get("transferFeePercent")
         ? Number(fd.get("transferFeePercent"))
         : undefined,
-      transferPrice: fd.get("transferPrice") ? Number(fd.get("transferPrice")) : undefined,
     });
     setLoading(false);
     setOpen(false);
+    setFormQuantity(1);
+    setFormUnitPrice(0);
+    setFormTransferFeePercent(0);
   }
 
   return (
@@ -564,23 +581,59 @@ function BudgetTab({
             </div>
             <div>
               <Label>Miktar</Label>
-              <Input name="quantity" type="number" step="0.01" min={0} defaultValue={1} required />
+              <Input
+                name="quantity"
+                type="number"
+                step="0.01"
+                min={0}
+                value={formQuantity}
+                onChange={(e) => setFormQuantity(Number(e.target.value))}
+                required
+              />
             </div>
             <div>
               <Label>Birim Fiyat</Label>
-              <Input name="unitPrice" type="number" step="0.01" min={0} required />
+              <Input
+                name="unitPrice"
+                type="number"
+                step="0.01"
+                min={0}
+                value={formUnitPrice}
+                onChange={(e) => setFormUnitPrice(Number(e.target.value))}
+                required
+              />
             </div>
             <div>
               <Label>Para Birimi</Label>
-              <CurrencySelect name="currency" />
+              <CurrencySelect
+                name="currency"
+                value={formCurrency}
+                onChange={(e) => setFormCurrency(e.target.value as CurrencyCode)}
+              />
+            </div>
+            <div>
+              <Label>Toplam Maliyet (KDV Hariç)</Label>
+              <Input value={formatMoney(formAmount, formCurrency)} readOnly tabIndex={-1} className="bg-muted text-muted-foreground" />
             </div>
             <div>
               <Label>TF %</Label>
-              <Input name="transferFeePercent" type="number" step="0.01" min={0} placeholder="Opsiyonel" />
+              <Input
+                name="transferFeePercent"
+                type="number"
+                step="0.01"
+                min={0}
+                value={formTransferFeePercent}
+                onChange={(e) => setFormTransferFeePercent(Number(e.target.value))}
+              />
             </div>
             <div>
               <Label>TF (Transfer Fiyatı)</Label>
-              <Input name="transferPrice" type="number" step="0.01" min={0} placeholder="Opsiyonel" />
+              <Input
+                value={formatMoney(formTransferPrice, formCurrency)}
+                readOnly
+                tabIndex={-1}
+                className="bg-muted text-muted-foreground"
+              />
             </div>
             <div className="col-span-2">
               <Label>Not</Label>
@@ -672,6 +725,9 @@ function BudgetImportDialog({
           yükleyebilirsiniz. Satırlarda ayrı bir &quot;Yıl&quot; sütunu yoksa aşağıda seçtiğiniz
           yıl kullanılır.
         </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => downloadBudgetTemplate()}>
+          <Download className="h-4 w-4" /> Örnek Şablonu İndir
+        </Button>
         <div>
           <Label>Hedef Yıl (Yıl sütunu olmayan satırlar için)</Label>
           <Input
