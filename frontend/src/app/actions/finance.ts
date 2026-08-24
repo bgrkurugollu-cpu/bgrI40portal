@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import type { Currency, InvoiceStatus } from "@prisma/client";
 
-// Gelir her zaman giderin %5 fazlasıdır (dış faturaya konan marj).
+// Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
 const INCOME_MARKUP = 1.05;
 
 export async function upsertMonthlyFinancial(input: {
@@ -13,14 +13,16 @@ export async function upsertMonthlyFinancial(input: {
   year: number;
   month: number;
   expense: number;
+  income?: number;
   internalIncome: number;
   currency: Currency;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Yetkisiz");
 
-  // Gelir gider üzerinden türetilir; manuel gelir girişi alınmaz.
-  const income = Math.round(input.expense * INCOME_MARKUP * 100) / 100;
+  // Gelir en az gider*%5 olmalı; kullanıcı bunun üzerinde bir değer girmişse o kullanılır.
+  const minIncome = Math.round(input.expense * INCOME_MARKUP * 100) / 100;
+  const income = Math.max(input.income ?? minIncome, minIncome);
 
   const data = {
     projectId: input.projectId,

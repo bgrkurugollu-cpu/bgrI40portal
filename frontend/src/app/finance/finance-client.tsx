@@ -75,7 +75,7 @@ export function FinanceClient({
   const ciro = totals.income + totals.internal;
   const karlilik = ciro - totals.expense;
 
-  // Pasta grafik: cironun bileşimi — Gelir (gider×1,05) + İç Kaynak Geliri = Ciro.
+  // Pasta grafik: cironun bileşimi — Gelir (min. gider×1,05) + İç Kaynak Geliri = Ciro.
   // Her dilim toplam cirodaki payı gösterir.
   const pieData = [
     { name: "Gelir", value: Math.round(totals.income), color: "var(--success)" },
@@ -156,9 +156,10 @@ export function FinanceClient({
       <RatesBanner rates={rates} />
 
       <div className="rounded-lg border border-primary/20 bg-accent/50 px-4 py-2.5 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Kural:</span> Gelir, ilgili aydaki
-        giderin %5 fazlası olarak otomatik hesaplanır. Tüm toplamlar güncel TCMB satış kuru
-        ile TL&apos;ye çevrilerek gösterilir.
+        <span className="font-medium text-foreground">Kural:</span> Gelir en az ilgili aydaki
+        giderin %5 fazlası olarak hesaplanır; gerçek gelir daha yüksekse proje detayından
+        manuel girilebilir. Tüm toplamlar güncel TCMB satış kuru ile TL&apos;ye çevrilerek
+        gösterilir.
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
@@ -228,7 +229,7 @@ export function FinanceClient({
           <CardHeader>
             <CardTitle>Ciro Dağılımı (Pay)</CardTitle>
             <CardDescription>
-              Gelir (gider×1,05) ve iç kaynak gelirinin toplam cirodaki payı (TL)
+              Gelir (min. gider×1,05) ve iç kaynak gelirinin toplam cirodaki payı (TL)
             </CardDescription>
           </CardHeader>
           <CardContent>

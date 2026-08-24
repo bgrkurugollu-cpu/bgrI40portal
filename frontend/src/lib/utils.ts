@@ -53,7 +53,7 @@ export const CURRENCY_LABELS: Record<CurrencyCode, string> = {
   GBP: "İngiliz Sterlini (£)",
 };
 
-// Gelir her zaman giderin %5 fazlasıdır.
+// Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
 export const INCOME_MARKUP = 1.05;
 
 export function formatMoney(

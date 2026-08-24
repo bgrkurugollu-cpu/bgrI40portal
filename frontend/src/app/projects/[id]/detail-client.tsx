@@ -577,9 +577,9 @@ function MonthlyTab({
       </CardHeader>
       <CardContent>
         <div className="mb-3 rounded-lg border border-primary/20 bg-accent/50 px-4 py-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Gelir otomatik:</span> girdiğiniz
-          giderin %5 fazlası olarak hesaplanır. Sadece gider, iç kaynak geliri ve para birimini
-          girin.
+          <span className="font-medium text-foreground">Gelir:</span> girdiğiniz giderin %5
+          fazlası olarak otomatik önerilir, ancak gerçek gelir daha yüksekse üzerine yazabilirsiniz
+          (minimum gider + %5&apos;in altına inemez).
         </div>
         <div className="mb-4 grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-success/10 px-4 py-3">
@@ -600,7 +600,7 @@ function MonthlyTab({
             <TR>
               <TH>Ay</TH>
               <TH>Gider</TH>
-              <TH>Gelir (otomatik +%5)</TH>
+              <TH>Gelir (min. +%5)</TH>
               <TH>İç Kaynak Geliri</TH>
               <TH>Para Birimi</TH>
               <TH></TH>
@@ -638,10 +638,19 @@ function MonthlyRow({
   data?: FinancialDTO;
 }) {
   const [expense, setExpense] = useState<number>(data?.expense ?? 0);
+  const minIncome = Math.round(expense * INCOME_MARKUP * 100) / 100;
+  const [income, setIncome] = useState<number>(data?.income ?? minIncome);
+  const [incomeEdited, setIncomeEdited] = useState(false);
   const [internalIncome, setInternalIncome] = useState<number>(data?.internalIncome ?? 0);
   const [currency, setCurrency] = useState<CurrencyCode>(data?.currency ?? "TRY");
   const [saving, setSaving] = useState(false);
-  const income = Math.round(expense * INCOME_MARKUP * 100) / 100;
+
+  function handleExpenseChange(value: number) {
+    setExpense(value);
+    if (!incomeEdited) {
+      setIncome(Math.round(value * INCOME_MARKUP * 100) / 100);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -650,6 +659,7 @@ function MonthlyRow({
       year,
       month,
       expense,
+      income,
       internalIncome,
       currency,
     });
@@ -664,16 +674,21 @@ function MonthlyRow({
           type="number"
           step="0.01"
           value={expense}
-          onChange={(e) => setExpense(Number(e.target.value))}
+          onChange={(e) => handleExpenseChange(Number(e.target.value))}
           className="h-8"
         />
       </TD>
       <TD>
         <Input
+          type="number"
+          step="0.01"
+          min={minIncome}
           value={income}
-          readOnly
-          tabIndex={-1}
-          className="h-8 bg-muted text-muted-foreground"
+          onChange={(e) => {
+            setIncome(Number(e.target.value));
+            setIncomeEdited(true);
+          }}
+          className="h-8"
         />
       </TD>
       <TD>
@@ -705,7 +720,6 @@ function MonthlyRow({
       </TD>
     </TR>
   );
-}
 
 // ── Faturalar ───────────────────────────────────────────
 
