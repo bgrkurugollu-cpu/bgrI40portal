@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
 import { ResourcesClient } from "./resources-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResourcesPage() {
+  const session = await getSession();
+  const isAdmin = session?.role === "ADMIN";
   const [assignments, members, projects] = await Promise.all([
     prisma.assignment.findMany({
       // Yalnızca DTO'nun kullandığı alanlar — ilişkili satırların tamamı çekilmez,
@@ -52,6 +55,7 @@ export default async function ResourcesPage() {
       assignments={dtos}
       members={memberDtos}
       projects={projects}
+      isAdmin={isAdmin}
     />
   );
 }

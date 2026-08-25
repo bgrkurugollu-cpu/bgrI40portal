@@ -1,24 +1,13 @@
 "use client";
 
-import { memo, useCallback, useDeferredValue, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  CartesianGrid,
-} from "recharts";
-import { ChevronRight, Pencil, Trash2, Plus, Check, X, Loader2, Search } from "lucide-react";
+import { ChevronRight, Pencil, Trash2, Plus, Check, X, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { useSort, SortTH, type SortValue } from "@/components/ui/sortable";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
 import { cn, MONTHS_TR, MONTHS_TR_SHORT } from "@/lib/utils";
 import { workingDaysByMonth } from "@/lib/workdays";
@@ -26,46 +15,23 @@ import { upsertAssignment, deleteAssignment } from "@/app/actions/projects";
 
 type Row = AssignmentDTO & { projectName: string };
 
-function assignmentValue(a: Row, key: string): SortValue {
-  switch (key) {
-    case "code":
-      return a.projectCode;
-    case "project":
-      return a.projectName;
-    case "member":
-      return a.memberName;
-    case "period":
-      return a.year * 100 + a.month;
-    case "planned":
-      return a.plannedDays;
-    case "actual":
-      return a.actualDays;
-    case "resources":
-      return a.resources;
-    default:
-      return null;
-  }
-}
-
-type EditDraft = { plannedDays: string; actualDays: string; resources: string };
-type AddDraft = {
+type ProjectCells = {
   projectId: string;
-  memberId: string;
-  year: string;
-  month: string;
-  plannedDays: string;
-  actualDays: string;
-  resources: string;
+  projectCode?: string;
+  projectName: string;
+  cells: (Row | undefined)[]; // 12 ay
 };
 
 export function ResourcesClient({
   assignments,
   members,
   projects,
+  isAdmin,
 }: {
   assignments: Row[];
   members: MemberDTO[];
   projects: { id: string; name: string }[];
+  isAdmin: boolean;
 }) {
   const years = useMemo(
     () =>
@@ -100,30 +66,27 @@ export function ResourcesClient({
     return map;
   }, [filtered, members]);
 
-  // Üye x Ay sapma matrisi (Gerçekleşen - Planlanan)
-  const deviation = useMemo(() => {
-    const map = new Map<string, number[]>();
-    members.forEach((m) => map.set(m.id, Array(12).fill(0)));
+  // Üye -> Proje -> Ay kırılımı (saklanabilir panelde gösterilecek)
+  const memberProjects = useMemo(() => {
+    const map = new Map<string, Map<string, ProjectCells>>();
+    members.forEach((m) => map.set(m.id, new Map()));
     filtered.forEach((a) => {
-      const arr = map.get(a.memberId);
-      if (arr) arr[a.month - 1] += (a.actualDays - a.plannedDays);
+      const projMap = map.get(a.memberId);
+      if (!projMap) return;
+      let entry = projMap.get(a.projectId);
+      if (!entry) {
+        entry = {
+          projectId: a.projectId,
+          projectCode: a.projectCode,
+          projectName: a.projectName,
+          cells: Array(12).fill(undefined),
+        };
+        projMap.set(a.projectId, entry);
+      }
+      entry.cells[a.month - 1] = a;
     });
     return map;
   }, [filtered, members]);
-
-  // Aylık plan vs gerçekleşen grafik verisi
-  const chartData = useMemo(
-    () =>
-      MONTHS_TR_SHORT.map((name, i) => {
-        const monthRows = filtered.filter((a) => a.month === i + 1);
-        return {
-          name,
-          Planlanan: monthRows.reduce((s, a) => s + a.plannedDays, 0),
-          Gerçekleşen: monthRows.reduce((s, a) => s + a.actualDays, 0),
-        };
-      }),
-    [filtered]
-  );
 
   // Her ay için 2026 çalışma günü (hafta içi − resmi tatil − köprü izin)
   const workDays = useMemo(() => workingDaysByMonth(year), [year]);
@@ -142,113 +105,15 @@ export function ResourcesClient({
     return "bg-success/10";
   };
 
-  // ── Atama Detayları: arama + sıralama + aç/kapa + satır içi düzenleme + ekle/sil ──
-  const [detailQuery, setDetailQuery] = useState("");
-  // Arama filtresi düşük öncelikli işlenir; input her zaman akıcı kalır,
-  // liste/sıralama arka planda güncellenir (React 19 useDeferredValue).
-  const deferredQuery = useDeferredValue(detailQuery);
-  const searchedRows = useMemo(() => {
-    const dq = deferredQuery.trim().toLocaleLowerCase("tr");
-    if (!dq) return filtered;
-    return filtered.filter(
-      (a) =>
-        (a.projectCode ?? "").toLocaleLowerCase("tr").includes(dq) ||
-        a.projectName.toLocaleLowerCase("tr").includes(dq) ||
-        a.memberName.toLocaleLowerCase("tr").includes(dq) ||
-        (a.resources ?? "").toLocaleLowerCase("tr").includes(dq)
-    );
-  }, [filtered, deferredQuery]);
-  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useSort(
-    searchedRows,
-    assignmentValue,
-    { key: "member", dir: "asc" }
-  );
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null); // kaydedilen/silinen satır id'si
-  const [adding, setAdding] = useState(false);
-  const emptyAdd: AddDraft = {
-    projectId: "",
-    memberId: "",
-    year: String(year),
-    month: String(new Date().getMonth() + 1),
-    plannedDays: "0",
-    actualDays: "0",
-    resources: "",
-  };
-  const [addDraft, setAddDraft] = useState<AddDraft>(emptyAdd);
-  const [error, setError] = useState<string | null>(null);
-
-  const startEdit = useCallback((a: Row) => {
-    setError(null);
-    setEditingId(a.id);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = useCallback((memberId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
   }, []);
-
-  const cancelEdit = useCallback(() => setEditingId(null), []);
-
-  // Düzenleme draft'ı artık satır bileşeninde (row-local) tutulur; kaydederken
-  // değerler buraya parametreyle gelir. Böylece bir hücreye yazmak yalnızca o
-  // satırı render eder — tüm sayfa + grafik + matrisler değil.
-  const saveEdit = useCallback(async (a: Row, values: EditDraft) => {
-    setBusyId(a.id);
-    setError(null);
-    try {
-      await upsertAssignment({
-        projectId: a.projectId,
-        memberId: a.memberId,
-        year: a.year,
-        month: a.month,
-        plannedDays: Number(values.plannedDays) || 0,
-        actualDays: Number(values.actualDays) || 0,
-        resources: values.resources.trim() || null,
-      });
-      setEditingId(null);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
-
-  const removeRow = useCallback(async (a: Row) => {
-    if (!window.confirm(`${a.projectCode} / ${a.memberName} atamasını silmek istediğinize emin misiniz?`))
-      return;
-    setBusyId(a.id);
-    setError(null);
-    try {
-      await deleteAssignment(a.id, a.projectId);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
-
-  async function saveAdd() {
-    if (!addDraft.projectId || !addDraft.memberId) {
-      setError("Proje ve üye seçmelisiniz.");
-      return;
-    }
-    setBusyId("__add__");
-    setError(null);
-    try {
-      await upsertAssignment({
-        projectId: addDraft.projectId,
-        memberId: addDraft.memberId,
-        year: Number(addDraft.year) || year,
-        month: Number(addDraft.month) || 1,
-        plannedDays: Number(addDraft.plannedDays) || 0,
-        actualDays: Number(addDraft.actualDays) || 0,
-        resources: addDraft.resources.trim() || null,
-      });
-      setAdding(false);
-      setAddDraft(emptyAdd);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -285,9 +150,10 @@ export function ResourcesClient({
         <CardHeader>
           <CardTitle>Ekip Yük Matrisi (planlanan adam-gün / ay)</CardTitle>
           <CardDescription>
-            Kapasite, her ay için 2026 çalışma günü sayısına göre hesaplanır (hafta
+            Kapasite, her ay için {year} çalışma günü sayısına göre hesaplanır (hafta
             içi günlerden resmi tatiller ve köprü izinleri düşülür). Kırmızı hücreler
-            ilgili ayın kapasitesinin aşımını gösterir.
+            ilgili ayın kapasitesinin aşımını gösterir. Bir kaynağın altındaki
+            projeleri ve aylık atamalarını görmek için satıra tıklayın.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -307,19 +173,21 @@ export function ResourcesClient({
               {members.map((m) => {
                 const arr = load.get(m.id) ?? [];
                 const total = arr.reduce((s, v) => s + v, 0);
+                const isOpen = expanded.has(m.id);
                 return (
-                  <TR key={m.id}>
-                    <TD>
-                      <div className="font-medium">{m.name}</div>
-                      <div className="text-xs text-muted-foreground">{m.title}</div>
-                    </TD>
-                    {arr.map((v, i) => (
-                      <TD key={i} className={cn("text-center tabular-nums", cellClass(v, i))}>
-                        {v > 0 ? v : "·"}
-                      </TD>
-                    ))}
-                    <TD className="text-right font-semibold tabular-nums">{total}</TD>
-                  </TR>
+                  <MemberRows
+                    key={m.id}
+                    member={m}
+                    arr={arr}
+                    total={total}
+                    isOpen={isOpen}
+                    onToggle={() => toggleExpanded(m.id)}
+                    cellClass={cellClass}
+                    projectsMap={memberProjects.get(m.id) ?? new Map()}
+                    projects={projects}
+                    year={year}
+                    isAdmin={isAdmin}
+                  />
                 );
               })}
               <TR className="bg-muted/50">
@@ -366,460 +234,426 @@ export function ResourcesClient({
           </p>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Planlanan vs Gerçekleşen Efor</CardTitle>
-          <CardDescription>Aylık toplam adam-gün karşılaştırması</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="Planlanan" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Gerçekleşen" fill="var(--success)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Kişi Bazlı Aylık Sapma Tablosu — okunabilirlik için Atama Detayları'nın üstünde */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Kişi Bazlı Aylık Sapma Tablosu</CardTitle>
-          <CardDescription>
-            Gerçekleşen ile planlanan efor farkı (Gerçekleşen - Planlanan). Kırmızı: Fazla mesai (Overload), Sarı: Eksik efor (Underload).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <THead>
-              <TR>
-                <TH>Ekip Üyesi</TH>
-                {MONTHS_TR_SHORT.map((m) => (
-                  <TH key={m} className="text-center">
-                    {m}
-                  </TH>
-                ))}
-                <TH className="text-right">Net Sapma</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {members.map((m) => {
-                const arr = deviation.get(m.id) ?? [];
-                const total = arr.reduce((s, v) => s + v, 0);
-                return (
-                  <TR key={m.id}>
-                    <TD>
-                      <div className="font-medium">{m.name}</div>
-                      <div className="text-xs text-muted-foreground">{m.title}</div>
-                    </TD>
-                    {arr.map((v, i) => {
-                      let bgClass = "bg-success/10";
-                      if (v > 0) bgClass = "bg-destructive/15 font-semibold text-destructive";
-                      else if (v < 0) bgClass = "bg-warning/20 font-medium text-amber-600 dark:text-amber-500";
-
-                      return (
-                        <TD key={i} className={cn("text-center tabular-nums", v !== 0 ? bgClass : "text-muted-foreground/40")}>
-                          {v > 0 ? `+${v}` : v < 0 ? v : "·"}
-                        </TD>
-                      );
-                    })}
-                    <TD className="text-right font-bold tabular-nums">
-                      <span className={total > 0 ? "text-destructive" : total < 0 ? "text-amber-600 dark:text-amber-500" : ""}>
-                        {total > 0 ? `+${total}` : total}
-                      </span>
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Atama Detayları — açılıp kapanabilen, satır içi düzenlenebilir tablo */}
-      <Card>
-        <CardHeader
-          className="flex-row items-center justify-between cursor-pointer select-none"
-          onClick={() => setDetailsOpen((o) => !o)}
-        >
-          <div>
-            <CardTitle>Atama Detayları</CardTitle>
-            <CardDescription>
-              {filtered.length} satırlık atama detayı
-              {detailsOpen ? "" : " — genişletmek için tıklayın"}
-            </CardDescription>
-          </div>
-          <ChevronRight
-            className={cn(
-              "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
-              detailsOpen && "rotate-90"
-            )}
-          />
-        </CardHeader>
-        {detailsOpen && (
-          <div className="overflow-hidden">
-              <CardContent>
-                {error && (
-                  <p className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-                <div className="relative mb-3 max-w-sm">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Proje, üye veya kaynak ara…"
-                    value={detailQuery}
-                    onChange={(e) => setDetailQuery(e.target.value)}
-                  />
-                </div>
-                <Table>
-                  <THead>
-                    <TR>
-                      <SortTH label="Proje Kodu" col="code" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTH label="Proje" col="project" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTH label="Üye" col="member" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTH label="Dönem" col="period" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTH label="Plan" col="planned" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" className="text-right" />
-                      <SortTH label="Gerçekleşen" col="actual" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" className="text-right" />
-                      <SortTH label="Kaynaklar" col="resources" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                      <TH className="text-right">İşlem</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {sortedRows.map((a) => (
-                      <AssignmentRow
-                        key={a.id}
-                        a={a}
-                        editing={editingId === a.id}
-                        busy={busyId === a.id}
-                        anyEditing={editingId !== null}
-                        onStartEdit={startEdit}
-                        onCancel={cancelEdit}
-                        onSave={saveEdit}
-                        onDelete={removeRow}
-                      />
-                    ))}
-
-                    {/* Ekleme satırı */}
-                    {adding && (
-                      <TR className="bg-muted/30">
-                        <TD className="text-muted-foreground" colSpan={2}>
-                          <Select
-                            className="h-8"
-                            value={addDraft.projectId}
-                            onChange={(e) =>
-                              setAddDraft((d) => ({ ...d, projectId: e.target.value }))
-                            }
-                          >
-                            <option value="">Proje seçin…</option>
-                            {projects.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </TD>
-                        <TD>
-                          <Select
-                            className="h-8"
-                            value={addDraft.memberId}
-                            onChange={(e) =>
-                              setAddDraft((d) => ({ ...d, memberId: e.target.value }))
-                            }
-                          >
-                            <option value="">Üye…</option>
-                            {members.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </TD>
-                        <TD>
-                          <div className="flex gap-1">
-                            <Select
-                              className="h-8"
-                              value={addDraft.month}
-                              onChange={(e) =>
-                                setAddDraft((d) => ({ ...d, month: e.target.value }))
-                              }
-                            >
-                              {MONTHS_TR.map((mn, i) => (
-                                <option key={mn} value={i + 1}>
-                                  {mn}
-                                </option>
-                              ))}
-                            </Select>
-                            <Input
-                              type="number"
-                              className="h-8 w-20"
-                              value={addDraft.year}
-                              onChange={(e) =>
-                                setAddDraft((d) => ({ ...d, year: e.target.value }))
-                              }
-                            />
-                          </div>
-                        </TD>
-                        <TD className="text-right">
-                          <Input
-                            type="number"
-                            step="0.5"
-                            min={0}
-                            className="h-8 w-20 text-right tabular-nums"
-                            value={addDraft.plannedDays}
-                            onChange={(e) =>
-                              setAddDraft((d) => ({ ...d, plannedDays: e.target.value }))
-                            }
-                          />
-                        </TD>
-                        <TD className="text-right">
-                          <Input
-                            type="number"
-                            step="0.5"
-                            min={0}
-                            className="h-8 w-20 text-right tabular-nums"
-                            value={addDraft.actualDays}
-                            onChange={(e) =>
-                              setAddDraft((d) => ({ ...d, actualDays: e.target.value }))
-                            }
-                          />
-                        </TD>
-                        <TD>
-                          <Input
-                            className="h-8"
-                            placeholder="Kaynak kişiler"
-                            value={addDraft.resources}
-                            onChange={(e) =>
-                              setAddDraft((d) => ({ ...d, resources: e.target.value }))
-                            }
-                          />
-                        </TD>
-                        <TD>
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-success"
-                              disabled={busyId === "__add__"}
-                              onClick={saveAdd}
-                              title="Ekle"
-                            >
-                              {busyId === "__add__" ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Check className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              disabled={busyId === "__add__"}
-                              onClick={() => {
-                                setAdding(false);
-                                setAddDraft(emptyAdd);
-                              }}
-                              title="Vazgeç"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TD>
-                      </TR>
-                    )}
-
-                    {sortedRows.length === 0 && !adding && (
-                      <TR>
-                        <TD colSpan={8} className="py-8 text-center text-muted-foreground">
-                          {detailQuery.trim()
-                            ? "Aramanızla eşleşen atama bulunamadı."
-                            : "Seçili filtre için kayıt yok"}
-                        </TD>
-                      </TR>
-                    )}
-                  </TBody>
-                </Table>
-
-                {!adding && (
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setError(null);
-                        setEditingId(null);
-                        setAddDraft({ ...emptyAdd, year: String(year) });
-                        setAdding(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Atama Ekle
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
 
-// ── Atama satırı (row-local düzenleme state'i) ──────────
-// Draft yalnızca bu bileşende tutulur; bir hücreye yazmak yalnızca bu satırı
-// render eder (üst bileşen, grafik ve matrisler etkilenmez). memo + stabil
-// callback'ler sayesinde diğer satırlar da yeniden render olmaz.
-const AssignmentRow = memo(function AssignmentRow({
-  a,
-  editing,
-  busy,
-  anyEditing,
-  onStartEdit,
-  onCancel,
-  onSave,
-  onDelete,
+// ── Ekip üyesi satırı + altında saklanabilir proje/atama paneli ─────────
+const MemberRows = memo(function MemberRows({
+  member,
+  arr,
+  total,
+  isOpen,
+  onToggle,
+  cellClass,
+  projectsMap,
+  projects,
+  year,
+  isAdmin,
 }: {
-  a: Row;
-  editing: boolean;
-  busy: boolean;
-  anyEditing: boolean;
-  onStartEdit: (a: Row) => void;
-  onCancel: () => void;
-  onSave: (a: Row, values: EditDraft) => void;
-  onDelete: (a: Row) => void;
+  member: MemberDTO;
+  arr: number[];
+  total: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  cellClass: (v: number, monthIndex: number) => string;
+  projectsMap: Map<string, ProjectCells>;
+  projects: { id: string; name: string }[];
+  year: number;
+  isAdmin: boolean;
 }) {
-  const [draft, setDraft] = useState<EditDraft>({
-    plannedDays: String(a.plannedDays),
-    actualDays: String(a.actualDays),
-    resources: a.resources ?? "",
-  });
+  return (
+    <>
+      <TR
+        className="cursor-pointer select-none hover:bg-muted/30"
+        onClick={onToggle}
+      >
+        <TD>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              title={isOpen ? "Kapat" : "Atanmış projeleri göster"}
+            >
+              <ChevronRight
+                className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")}
+              />
+            </button>
+            <div>
+              <div className="font-medium">{member.name}</div>
+              <div className="text-xs text-muted-foreground">{member.title}</div>
+            </div>
+          </div>
+        </TD>
+        {arr.map((v, i) => (
+          <TD key={i} className={cn("text-center tabular-nums", cellClass(v, i))}>
+            {v > 0 ? v : "·"}
+          </TD>
+        ))}
+        <TD className="text-right font-semibold tabular-nums">{total}</TD>
+      </TR>
+      {isOpen && (
+        <TR>
+          <TD colSpan={14} className="bg-muted/20 p-0">
+            <MemberProjectsPanel
+              member={member}
+              projectsMap={projectsMap}
+              projects={projects}
+              year={year}
+              isAdmin={isAdmin}
+            />
+          </TD>
+        </TR>
+      )}
+    </>
+  );
+});
 
-  // Düzenlemeye girildiğinde draft'ı satırın güncel değerleriyle doldur.
-  function beginEdit() {
-    setDraft({
-      plannedDays: String(a.plannedDays),
-      actualDays: String(a.actualDays),
-      resources: a.resources ?? "",
-    });
-    onStartEdit(a);
+// ── Bir kaynağa atanmış projeler ve aylık atama sayıları ─────────
+const MemberProjectsPanel = memo(function MemberProjectsPanel({
+  member,
+  projectsMap,
+  projects,
+  year,
+  isAdmin,
+}: {
+  member: MemberDTO;
+  projectsMap: Map<string, ProjectCells>;
+  projects: { id: string; name: string }[];
+  year: number;
+  isAdmin: boolean;
+}) {
+  const rows = useMemo(
+    () => Array.from(projectsMap.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, "tr")),
+    [projectsMap]
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addProjectId, setAddProjectId] = useState("");
+  const [addMonth, setAddMonth] = useState(String(new Date().getMonth() + 1));
+  const [addDays, setAddDays] = useState("0");
+
+  const assignedProjectIds = useMemo(() => new Set(rows.map((r) => r.projectId)), [rows]);
+  const availableProjects = useMemo(
+    () => projects.filter((p) => !assignedProjectIds.has(p.id)),
+    [projects, assignedProjectIds]
+  );
+
+  async function saveCell(row: ProjectCells, monthIndex: number, value: number) {
+    const existing = row.cells[monthIndex];
+    const key = `${row.projectId}-${monthIndex}`;
+    setBusyKey(key);
+    setError(null);
+    try {
+      await upsertAssignment({
+        projectId: row.projectId,
+        memberId: member.id,
+        year,
+        month: monthIndex + 1,
+        plannedDays: value,
+        actualDays: existing?.actualDays ?? 0,
+        resources: existing?.resources ?? null,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function removeProject(row: ProjectCells) {
+    if (
+      !window.confirm(
+        `${member.name} için ${row.projectName} projesindeki tüm aylık atamaları silmek istediğinize emin misiniz?`
+      )
+    )
+      return;
+    setBusyKey(row.projectId);
+    setError(null);
+    try {
+      const ids = row.cells.filter((c): c is Row => !!c).map((c) => c.id);
+      for (const id of ids) {
+        await deleteAssignment(id, row.projectId);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function saveAdd() {
+    if (!addProjectId) {
+      setError("Proje seçmelisiniz.");
+      return;
+    }
+    setBusyKey("__add__");
+    setError(null);
+    try {
+      await upsertAssignment({
+        projectId: addProjectId,
+        memberId: member.id,
+        year,
+        month: Number(addMonth) || 1,
+        plannedDays: Number(addDays) || 0,
+        actualDays: 0,
+        resources: null,
+      });
+      setAdding(false);
+      setAddProjectId("");
+      setAddDays("0");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyKey(null);
+    }
   }
 
   return (
-    <TR>
-      <TD className="font-mono text-xs font-bold text-muted-foreground">{a.projectCode}</TD>
-      <TD>
-        <Link
-          href={`/projects/${a.projectId}`}
-          className="font-medium text-primary hover:underline"
-        >
-          {a.projectName}
-        </Link>
-      </TD>
-      <TD>{a.memberName}</TD>
-      <TD className="text-muted-foreground">
-        {MONTHS_TR_SHORT[a.month - 1]} {a.year}
-      </TD>
-      {editing ? (
-        <>
-          <TD className="text-right">
-            <Input
-              type="number"
-              step="0.5"
-              min={0}
-              className="h-8 w-20 text-right tabular-nums"
-              value={draft.plannedDays}
-              onChange={(e) => setDraft((d) => ({ ...d, plannedDays: e.target.value }))}
-            />
-          </TD>
-          <TD className="text-right">
-            <Input
-              type="number"
-              step="0.5"
-              min={0}
-              className="h-8 w-20 text-right tabular-nums"
-              value={draft.actualDays}
-              onChange={(e) => setDraft((d) => ({ ...d, actualDays: e.target.value }))}
-            />
-          </TD>
-          <TD>
-            <Input
-              className="h-8"
-              value={draft.resources}
-              placeholder="Kaynak kişiler"
-              onChange={(e) => setDraft((d) => ({ ...d, resources: e.target.value }))}
-            />
-          </TD>
-          <TD>
-            <div className="flex items-center justify-end gap-1">
+    <div className="px-4 py-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-medium">
+          {member.name} — atanmış projeler ve aylık atama gün sayıları
+        </p>
+        {!isAdmin && (
+          <span className="text-xs text-muted-foreground">Yalnızca görüntüleme</span>
+        )}
+      </div>
+      {error && (
+        <p className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      {rows.length === 0 && !adding ? (
+        <p className="text-sm text-muted-foreground">
+          {year} yılı için {member.name} adına atanmış proje bulunmuyor.
+        </p>
+      ) : (
+        <Table>
+          <THead>
+            <TR>
+              <TH>Proje</TH>
+              {MONTHS_TR_SHORT.map((m) => (
+                <TH key={m} className="text-center">
+                  {m}
+                </TH>
+              ))}
+              <TH className="text-right">Toplam</TH>
+              {isAdmin && <TH className="text-right">İşlem</TH>}
+            </TR>
+          </THead>
+          <TBody>
+            {rows.map((row) => (
+              <ProjectRow
+                key={row.projectId}
+                row={row}
+                isAdmin={isAdmin}
+                busyKey={busyKey}
+                onSaveCell={saveCell}
+                onRemove={removeProject}
+              />
+            ))}
+          </TBody>
+        </Table>
+      )}
+
+      {isAdmin && (
+        <div className="mt-3">
+          {adding ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2">
+              <Select
+                className="h-8 w-56"
+                value={addProjectId}
+                onChange={(e) => setAddProjectId(e.target.value)}
+              >
+                <option value="">Proje seçin…</option>
+                {availableProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="h-8 w-28"
+                value={addMonth}
+                onChange={(e) => setAddMonth(e.target.value)}
+              >
+                {MONTHS_TR.map((mn, i) => (
+                  <option key={mn} value={i + 1}>
+                    {mn}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                type="number"
+                step="0.5"
+                min={0}
+                className="h-8 w-24 text-right tabular-nums"
+                value={addDays}
+                onChange={(e) => setAddDays(e.target.value)}
+                placeholder="Gün"
+              />
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-success"
-                disabled={busy}
-                onClick={() => onSave(a, draft)}
-                title="Kaydet"
+                disabled={busyKey === "__add__"}
+                onClick={saveAdd}
+                title="Ekle"
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {busyKey === "__add__" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                disabled={busy}
-                onClick={onCancel}
+                disabled={busyKey === "__add__"}
+                onClick={() => {
+                  setAdding(false);
+                  setAddProjectId("");
+                  setAddDays("0");
+                }}
                 title="Vazgeç"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Proje Ata
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── Proje satırı: aylık hücreler admin için düzenlenebilir ─────────
+const ProjectRow = memo(function ProjectRow({
+  row,
+  isAdmin,
+  busyKey,
+  onSaveCell,
+  onRemove,
+}: {
+  row: ProjectCells;
+  isAdmin: boolean;
+  busyKey: string | null;
+  onSaveCell: (row: ProjectCells, monthIndex: number, value: number) => void;
+  onRemove: (row: ProjectCells) => void;
+}) {
+  const [editingMonth, setEditingMonth] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+  const total = row.cells.reduce((s, c) => s + (c?.plannedDays ?? 0), 0);
+
+  return (
+    <TR>
+      <TD>
+        <Link
+          href={`/projects/${row.projectId}`}
+          className="font-medium text-primary hover:underline"
+        >
+          {row.projectName}
+        </Link>
+      </TD>
+      {row.cells.map((c, i) => {
+        const value = c?.plannedDays ?? 0;
+        const key = `${row.projectId}-${i}`;
+        const isBusy = busyKey === key;
+        if (isAdmin && editingMonth === i) {
+          return (
+            <TD key={i} className="text-center">
+              <div className="flex items-center justify-center gap-1">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  autoFocus
+                  className="h-7 w-16 text-right tabular-nums"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-success"
+                  disabled={isBusy}
+                  onClick={() => {
+                    onSaveCell(row, i, Number(draft) || 0);
+                    setEditingMonth(null);
+                  }}
+                  title="Kaydet"
+                >
+                  {isBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={isBusy}
+                  onClick={() => setEditingMonth(null)}
+                  title="Vazgeç"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </TD>
+          );
+        }
+        return (
+          <TD
+            key={i}
+            className={cn(
+              "text-center tabular-nums",
+              value > 0 ? "" : "text-muted-foreground/40",
+              isAdmin && "cursor-pointer hover:bg-muted/50"
+            )}
+            onClick={
+              isAdmin
+                ? () => {
+                    setDraft(String(value));
+                    setEditingMonth(i);
+                  }
+                : undefined
+            }
+          >
+            {value > 0 ? value : "·"}
           </TD>
-        </>
-      ) : (
-        <>
-          <TD className="text-right tabular-nums">{a.plannedDays}</TD>
-          <TD className="text-right tabular-nums">{a.actualDays}</TD>
-          <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
-          <TD>
-            <div className="flex items-center justify-end gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={busy || anyEditing}
-                onClick={beginEdit}
-                title="Düzenle"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive"
-                disabled={busy || anyEditing}
-                onClick={() => onDelete(a)}
-                title="Sil"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              </Button>
-            </div>
-          </TD>
-        </>
+        );
+      })}
+      <TD className="text-right font-semibold tabular-nums">{total}</TD>
+      {isAdmin && (
+        <TD className="text-right">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive"
+            disabled={busyKey === row.projectId}
+            onClick={() => onRemove(row)}
+            title="Projeden kaldır"
+          >
+            {busyKey === row.projectId ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        </TD>
       )}
     </TR>
   );
