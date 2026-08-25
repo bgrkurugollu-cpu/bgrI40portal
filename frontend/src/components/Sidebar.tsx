@@ -80,9 +80,9 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-all duration-300 md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-all duration-300 md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
-          desktopExpanded ? "w-60" : "w-[80px]"
+          desktopExpanded ? "md:w-60" : "md:w-[80px]"
         )}
       >
       {onToggleDesktop && (
@@ -93,7 +93,7 @@ export function Sidebar({
           {desktopExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       )}
-      <div className={cn("flex items-center gap-2.5 py-5", desktopExpanded ? "px-5" : "px-0 justify-center")}>
+      <div className={cn("flex items-center gap-2.5 px-5 py-5", !desktopExpanded && "md:justify-center md:px-0")}>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Factory className="h-5 w-5" />
         </div>
@@ -120,8 +120,8 @@ export function Sidebar({
               href={href}
               title={!desktopExpanded ? label : undefined}
               className={cn(
-                "relative flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
-                desktopExpanded ? "gap-3 px-3" : "justify-center px-0",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                !desktopExpanded && "md:justify-center md:px-0",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -138,8 +138,8 @@ export function Sidebar({
       <div ref={menuRef} className="relative border-t px-3 py-3">
         {menuOpen && (
             <div className={cn(
-              "absolute bottom-full mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl",
-              desktopExpanded ? "left-3 right-3" : "left-full ml-3 w-56"
+              "absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-xl border bg-card p-1.5 shadow-xl",
+              !desktopExpanded && "md:left-full md:right-auto md:ml-3 md:w-56"
             )}>
               <div className="border-b px-3 pt-1.5 pb-2.5">
                 <div className="truncate text-sm font-semibold">{user?.name}</div>
@@ -205,8 +205,8 @@ export function Sidebar({
         <button
           onClick={() => setMenuOpen((v) => !v)}
           className={cn(
-            "flex w-full items-center rounded-lg py-2 text-left transition-colors",
-            desktopExpanded ? "gap-3 px-2" : "justify-center px-0",
+            "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
+            !desktopExpanded && "md:justify-center md:px-0",
             menuOpen ? "bg-muted" : "hover:bg-muted"
           )}
           aria-expanded={menuOpen}
@@ -221,9 +221,12 @@ export function Sidebar({
               {isAdmin ? "Admin" : "Kullanıcı"}
             </div>
           </div>
-          {desktopExpanded && (
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
+          <ChevronsUpDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground",
+              !desktopExpanded && "md:hidden"
+            )}
+          />
         </button>
       </div>
       </aside>
