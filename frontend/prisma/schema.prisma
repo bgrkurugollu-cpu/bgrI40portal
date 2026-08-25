@@ -77,11 +77,12 @@ model Project {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  logs        ProjectLog[]
-  assignments Assignment[]
-  budgetItems BudgetItem[]
-  financials  MonthlyFinancial[]
-  invoices    Invoice[]
+  logs            ProjectLog[]
+  assignments     Assignment[]
+  budgetItems     BudgetItem[]
+  financials      MonthlyFinancial[]
+  invoices        Invoice[]
+  paymentPlanItems PaymentPlanItem[]
 }
 
 // Tarihsel değişiklik logu
@@ -192,6 +193,26 @@ model Invoice {
   exchangeRateDiffEbaNumber String? // Kur farkı eBA No
 
   @@index([issueDate])
+}
+
+enum PaymentStatus {
+  PLANNED
+  PAID
+}
+
+// Ödeme Planı — her projenin kendi ödeme takvimini ayrı tutar
+model PaymentPlanItem {
+  id          String        @id @default(cuid())
+  projectId   String
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal       @default(0) @db.Decimal(14, 2)
+  currency    Currency      @default(TRY)
+  dueDate     DateTime
+  status      PaymentStatus @default(PLANNED)
+  note        String?
+
+  @@index([dueDate])
 }
 
 // ── Modül 3: Lisans ve Key Yönetimi ────────────────────

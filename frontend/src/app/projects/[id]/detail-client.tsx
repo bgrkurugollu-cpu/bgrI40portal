@@ -15,6 +15,7 @@ import {
   Loader2,
   Upload,
   Download,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,10 @@ import {
   updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
+  addPaymentPlanItem,
+  updatePaymentPlanItem,
+  updatePaymentPlanStatus,
+  deletePaymentPlanItem,
 } from "@/app/actions/finance";
 import {
   parseBudgetExcelFile,
@@ -54,6 +59,7 @@ import type {
   InvoiceDTO,
   LogDTO,
   MemberDTO,
+  PaymentPlanItemDTO,
   ProjectDTO,
   RatesDTO,
 } from "@/lib/types";
@@ -65,8 +71,10 @@ import {
   formatDate,
   formatMoney,
   getInvoiceDerivedStatus,
+  getPaymentPlanDerivedStatus,
   INCOME_MARKUP,
   INVOICE_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
   MONTHS_TR,
   RISK_LABELS,
   STATUS_LABELS,
@@ -96,13 +104,14 @@ function CurrencySelect({
   );
 }
 
-type Tab = "team" | "budget" | "monthly" | "invoices" | "history";
+type Tab = "team" | "budget" | "monthly" | "invoices" | "payments" | "history";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "team", label: "Ekip & Efor", icon: Users },
   { id: "budget", label: "Bütçe Kırılımı", icon: ListTree },
   { id: "monthly", label: "Aylık Finans", icon: CalendarDays },
   { id: "invoices", label: "Faturalar", icon: Receipt },
+  { id: "payments", label: "Ödeme Planı", icon: Wallet },
   { id: "history", label: "Değişiklik Geçmişi", icon: History },
 ];
 
@@ -113,6 +122,7 @@ export function ProjectDetailClient(props: {
   budgetItems: BudgetItemDTO[];
   financials: FinancialDTO[];
   invoices: InvoiceDTO[];
+  paymentPlanItems: PaymentPlanItemDTO[];
   rates: RatesDTO;
   factories: FactoryDTO[];
   members: MemberDTO[];
@@ -210,6 +220,7 @@ export function ProjectDetailClient(props: {
         {tab === "budget" && <BudgetTab {...props} />}
         {tab === "monthly" && <MonthlyTab {...props} />}
         {tab === "invoices" && <InvoicesTab {...props} />}
+        {tab === "payments" && <PaymentPlanTab {...props} />}
         {tab === "history" && <HistoryTab logs={props.logs} />}
       </div>
 
@@ -1329,6 +1340,220 @@ function InvoicesTab({
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
               {editingInvoice ? "Kaydet" : "Ekle"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    </Card>
+  );
+}
+
+// ── Ödeme Planı ─────────────────────────────────────────
+
+function PaymentPlanTab({
+  project,
+  paymentPlanItems,
+}: {
+  project: ProjectDTO;
+  paymentPlanItems: PaymentPlanItemDTO[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<PaymentPlanItemDTO | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function openAddDialog() {
+    setEditingItem(null);
+    setOpen(true);
+  }
+
+  function openEditDialog(item: PaymentPlanItemDTO) {
+    setEditingItem(item);
+    setOpen(true);
+  }
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const fd = new FormData(e.currentTarget);
+    const input = {
+      description: String(fd.get("description")),
+      amount: Number(fd.get("amount")),
+      currency: fd.get("currency") as CurrencyCode,
+      dueDate: String(fd.get("dueDate")),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      status: fd.get("status") as any,
+      note: fd.get("note") ? String(fd.get("note")) : undefined,
+    };
+    if (editingItem) {
+      await updatePaymentPlanItem(editingItem.id, input);
+    } else {
+      await addPaymentPlanItem({ projectId: project.id, ...input });
+    }
+    setLoading(false);
+    setOpen(false);
+    setEditingItem(null);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Ödeme Planı</CardTitle>
+        <Button size="sm" onClick={openAddDialog}>
+          <Plus className="h-4 w-4" /> Ödeme Ekle
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Açıklama</TH>
+              <TH>Vade Tarihi</TH>
+              <TH className="text-right">Tutar</TH>
+              <TH className="text-right">TL Karşılığı</TH>
+              <TH>Not</TH>
+              <TH>Durum</TH>
+              <TH></TH>
+            </TR>
+          </THead>
+          <TBody>
+            {paymentPlanItems.map((item) => (
+              <TR key={item.id}>
+                <TD className="font-medium">{item.description}</TD>
+                <TD className="text-muted-foreground">{formatDate(item.dueDate)}</TD>
+                <TD className="text-right font-medium">
+                  {formatMoney(item.amount, item.currency)}
+                </TD>
+                <TD className="text-right text-muted-foreground">
+                  {item.currency === "TRY" ? "—" : formatMoney(item.amountTRY)}
+                </TD>
+                <TD className="text-muted-foreground">{item.note || "—"}</TD>
+                <TD>
+                  <Select
+                    className="h-8 w-36"
+                    defaultValue={item.status}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onChange={(e) => updatePaymentPlanStatus(item.id, e.target.value as any)}
+                  >
+                    {Object.entries(PAYMENT_STATUS_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </Select>
+                </TD>
+                <TD>
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const derived = getPaymentPlanDerivedStatus(item.status, item.dueDate);
+                      return (
+                        <div>
+                          <Badge tone={derived.tone}>{derived.label}</Badge>
+                          {derived.description && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {derived.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Düzenle"
+                      onClick={() => openEditDialog(item)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Sil"
+                      onClick={() => deletePaymentPlanItem(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </TD>
+              </TR>
+            ))}
+            {paymentPlanItems.length === 0 && (
+              <TR>
+                <TD colSpan={7} className="py-8 text-center text-muted-foreground">
+                  Ödeme planı kaydı yok.
+                </TD>
+              </TR>
+            )}
+          </TBody>
+        </Table>
+      </CardContent>
+
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setEditingItem(null);
+        }}
+        title={editingItem ? "Ödeme Düzenle" : "Ödeme Ekle"}
+      >
+        <form key={editingItem?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label>Açıklama</Label>
+              <Input name="description" defaultValue={editingItem?.description} required />
+            </div>
+            <div>
+              <Label>Tutar</Label>
+              <Input
+                name="amount"
+                type="number"
+                step="0.01"
+                min={0}
+                defaultValue={editingItem?.amount}
+                required
+              />
+            </div>
+            <div>
+              <Label>Para Birimi</Label>
+              <CurrencySelect name="currency" defaultValue={editingItem?.currency} />
+            </div>
+            <div>
+              <Label>Vade Tarihi</Label>
+              <Input
+                name="dueDate"
+                type="date"
+                defaultValue={editingItem?.dueDate.slice(0, 10)}
+                required
+              />
+            </div>
+            <div>
+              <Label>Durum</Label>
+              <Select name="status" defaultValue={editingItem?.status ?? "PLANNED"}>
+                {Object.entries(PAYMENT_STATUS_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label>Not</Label>
+              <Input name="note" placeholder="Opsiyonel" defaultValue={editingItem?.note ?? ""} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                setEditingItem(null);
+              }}
+            >
+              Vazgeç
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+              {editingItem ? "Kaydet" : "Ekle"}
             </Button>
           </div>
         </form>

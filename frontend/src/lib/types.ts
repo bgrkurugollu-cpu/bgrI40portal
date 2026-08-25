@@ -102,6 +102,20 @@ export type InvoiceDTO = {
   exchangeRateDiffEbaNumber: string | null;
 };
 
+export type PaymentPlanItemDTO = {
+  id: string;
+  projectId: string;
+  projectCode?: string;
+  projectName?: string;
+  description: string;
+  amount: number;
+  currency: CurrencyCode;
+  amountTRY: number;
+  dueDate: string;
+  status: string;
+  note: string | null;
+};
+
 export type LogDTO = {
   id: string;
   field: string;

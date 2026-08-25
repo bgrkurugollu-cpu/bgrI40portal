@@ -135,6 +135,43 @@ export function getInvoiceDerivedStatus(
   return { label: "Kesilecek", tone: "muted", description: null };
 }
 
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PLANNED: "Planlandı",
+  PAID: "Ödendi",
+};
+
+// Ödeme statüsü ve vade tarihine göre gösterilecek türetilmiş durumu hesaplar.
+export function getPaymentPlanDerivedStatus(
+  status: string,
+  dueDate: Date | string
+): InvoiceDerivedStatus {
+  if (status === "PAID") {
+    return { label: "Ödendi", tone: "success", description: null };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dueDate);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+
+  if (diffDays < 0) {
+    return {
+      label: "Gecikti",
+      tone: "destructive",
+      description: `Vadesinden ${Math.abs(diffDays)} gün geçti`,
+    };
+  }
+  if (diffDays <= INVOICE_APPROACHING_DAYS) {
+    return {
+      label: "Yaklaşıyor",
+      tone: "warning",
+      description: diffDays === 0 ? "Bugün" : `${diffDays} gün kaldı`,
+    };
+  }
+  return { label: "Planlandı", tone: "muted", description: null };
+}
+
 export const LICENSE_STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Aktif",
   EXPIRING: "Yenileme Yaklaşıyor",

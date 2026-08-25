@@ -6,6 +6,7 @@ import type {
   FinancialDTO,
   InvoiceDTO,
   LogDTO,
+  PaymentPlanItemDTO,
   ProjectDTO,
   RatesDTO,
 } from "@/lib/types";
@@ -35,6 +36,7 @@ export default async function ProjectDetailPage({
       budgetItems: true,
       financials: { orderBy: [{ year: "asc" }, { month: "asc" }] },
       invoices: { orderBy: { issueDate: "asc" } },
+      paymentPlanItems: { orderBy: { dueDate: "asc" } },
     },
   });
   if (!project) notFound();
@@ -138,6 +140,21 @@ export default async function ProjectDetailPage({
     };
   });
 
+  const paymentPlanItems: PaymentPlanItemDTO[] = project.paymentPlanItems.map((p) => {
+    const currency = p.currency as CurrencyCode;
+    return {
+      id: p.id,
+      projectId: p.projectId,
+      description: p.description,
+      amount: Number(p.amount),
+      currency,
+      amountTRY: toTRY(Number(p.amount), currency, rates),
+      dueDate: p.dueDate.toISOString().slice(0, 10),
+      status: p.status,
+      note: p.note,
+    };
+  });
+
   const ratesDto: RatesDTO = {
     TRY: rates.TRY,
     USD: rates.USD,
@@ -156,6 +173,7 @@ export default async function ProjectDetailPage({
       budgetItems={budgetItems}
       financials={financials}
       invoices={invoices}
+      paymentPlanItems={paymentPlanItems}
       rates={ratesDto}
       factories={factories.map((f) => ({ id: f.id, name: f.name, location: f.location }))}
       members={members.map((m) => ({ id: m.id, name: m.name, title: m.title }))}

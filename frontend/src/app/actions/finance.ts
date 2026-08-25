@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import type { BudgetExpenseType, Currency, InvoiceStatus } from "@prisma/client";
+import type { BudgetExpenseType, Currency, InvoiceStatus, PaymentStatus } from "@prisma/client";
 
 // Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
 const INCOME_MARKUP = 1.05;
@@ -193,5 +193,64 @@ export async function deleteInvoice(id: string) {
   if (!session) throw new Error("Yetkisiz");
   const inv = await prisma.invoice.delete({ where: { id } });
   revalidatePath(`/projects/${inv.projectId}`);
+  revalidatePath("/finance");
+}
+
+// ── Ödeme Planı ──────────────────────────────────────────
+
+export async function addPaymentPlanItem(input: {
+  projectId: string;
+  description: string;
+  amount: number;
+  currency: Currency;
+  dueDate: string;
+  status: PaymentStatus;
+  note?: string;
+}) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+
+  await prisma.paymentPlanItem.create({
+    data: { ...input, dueDate: new Date(input.dueDate) },
+  });
+  revalidatePath(`/projects/${input.projectId}`);
+  revalidatePath("/finance");
+}
+
+export async function updatePaymentPlanItem(
+  id: string,
+  input: {
+    description: string;
+    amount: number;
+    currency: Currency;
+    dueDate: string;
+    status: PaymentStatus;
+    note?: string;
+  }
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+
+  const item = await prisma.paymentPlanItem.update({
+    where: { id },
+    data: { ...input, dueDate: new Date(input.dueDate) },
+  });
+  revalidatePath(`/projects/${item.projectId}`);
+  revalidatePath("/finance");
+}
+
+export async function updatePaymentPlanStatus(id: string, status: PaymentStatus) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+  const item = await prisma.paymentPlanItem.update({ where: { id }, data: { status } });
+  revalidatePath(`/projects/${item.projectId}`);
+  revalidatePath("/finance");
+}
+
+export async function deletePaymentPlanItem(id: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+  const item = await prisma.paymentPlanItem.delete({ where: { id } });
+  revalidatePath(`/projects/${item.projectId}`);
   revalidatePath("/finance");
 }
