@@ -169,7 +169,7 @@ export function ProjectsClient({
                     </span>
                   </div>
                 </TD>
-                <TD className="font-medium">{formatMoney(p.targetBudget)}</TD>
+                <TD className="font-medium">{formatMoney(p.targetBudget, "TRY", 2)}</TD>
                 <TD className="text-muted-foreground">
                   {formatDate(p.startDate)} → {formatDate(p.endDate)}
                 </TD>

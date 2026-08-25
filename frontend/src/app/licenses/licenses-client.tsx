@@ -180,17 +180,17 @@ export function LicensesClient({
                   </TD>
                   <TD className="text-muted-foreground">{l.factoryNames.join(", ")}</TD>
                   <TD className="text-right font-medium">
-                    {formatMoney(l.totalInvestment, l.currency)}
+                    {formatMoney(l.totalInvestment, l.currency, 2)}
                     {l.currency !== "TRY" && (
                       <div className="text-xs font-normal text-muted-foreground">
-                        ≈ {formatMoney(l.totalInvestmentTRY)}
+                        ≈ {formatMoney(l.totalInvestmentTRY, "TRY", 2)}
                       </div>
                     )}
                   </TD>
                   <TD>
                     {l.isSubscription ? (
                       <div className="text-sm">
-                        {formatMoney(l.subscriptionCost, l.currency)}
+                        {formatMoney(l.subscriptionCost, l.currency, 2)}
                         <span className="text-xs text-muted-foreground">
                           {" "}
                           / {PERIOD_LABELS[l.paymentPeriod]}

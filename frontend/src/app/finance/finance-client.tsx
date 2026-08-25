@@ -344,11 +344,11 @@ export function FinanceClient({
                       <TD className="text-muted-foreground">{label}</TD>
                       {vals.map((v, i) => (
                         <TD key={i} className="text-right tabular-nums text-xs whitespace-nowrap">
-                          {v > 0 ? formatMoney(v) : "·"}
+                          {v > 0 ? formatMoney(v, "TRY", 2) : "·"}
                         </TD>
                       ))}
                       <TD className="text-right text-xs font-semibold tabular-nums whitespace-nowrap">
-                        {formatMoney(total)}
+                        {formatMoney(total, "TRY", 2)}
                       </TD>
                     </TR>
                   );
@@ -412,10 +412,10 @@ export function FinanceClient({
                   <TD>{inv.hasExchangeRateDiff ? inv.exchangeRateDiffEbaNumber || "—" : "—"}</TD>
                   <TD>{inv.poNumber || "—"}</TD>
                   <TD className="text-right font-medium">
-                    {formatMoney(inv.amount, inv.currency)}
+                    {formatMoney(inv.amount, inv.currency, 2)}
                   </TD>
                   <TD className="text-right text-muted-foreground">
-                    {inv.currency === "TRY" ? "—" : formatMoney(inv.amountTRY)}
+                    {inv.currency === "TRY" ? "—" : formatMoney(inv.amountTRY, "TRY", 2)}
                   </TD>
                   <TD>
                     {(() => {
@@ -482,13 +482,13 @@ export function FinanceClient({
                         {name}
                       </Link>
                     </TD>
-                    <TD className="text-right">{formatMoney(income)}</TD>
-                    <TD className="text-right">{formatMoney(expense)}</TD>
-                    <TD className="text-right">{formatMoney(internal)}</TD>
-                    <TD className="text-right font-semibold text-primary">{formatMoney(pCiro)}</TD>
+                    <TD className="text-right">{formatMoney(income, "TRY", 2)}</TD>
+                    <TD className="text-right">{formatMoney(expense, "TRY", 2)}</TD>
+                    <TD className="text-right">{formatMoney(internal, "TRY", 2)}</TD>
+                    <TD className="text-right font-semibold text-primary">{formatMoney(pCiro, "TRY", 2)}</TD>
                     <TD className="text-right font-bold">
                       <Badge tone={pKarlilik >= 0 ? "success" : "destructive"}>
-                        {formatMoney(pKarlilik)}
+                        {formatMoney(pKarlilik, "TRY", 2)}
                       </Badge>
                     </TD>
                   </TR>

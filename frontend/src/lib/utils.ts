@@ -58,13 +58,15 @@ export const INCOME_MARKUP = 1.05;
 
 export function formatMoney(
   value: number | string | null | undefined,
-  currency: CurrencyCode = "TRY"
+  currency: CurrencyCode = "TRY",
+  decimals = 0
 ) {
   const n = Number(value ?? 0);
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(n);
 }
 

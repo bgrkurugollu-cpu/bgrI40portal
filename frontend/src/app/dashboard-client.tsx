@@ -330,10 +330,10 @@ export function DashboardClient({
                       <TD>{inv.ebaNumber || "—"}</TD>
                       <TD>{inv.poNumber || "—"}</TD>
                       <TD className="text-right font-medium">
-                        {formatMoney(inv.amount, inv.currency)}
+                        {formatMoney(inv.amount, inv.currency, 2)}
                         {inv.currency !== "TRY" && (
                           <div className="text-xs font-normal text-muted-foreground">
-                            ≈ {formatMoney(inv.amountTRY)}
+                            ≈ {formatMoney(inv.amountTRY, "TRY", 2)}
                           </div>
                         )}
                       </TD>

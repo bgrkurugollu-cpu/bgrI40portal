@@ -547,16 +547,16 @@ function BudgetTab({
                 <TD className="text-muted-foreground">{b.supplier || "—"}</TD>
                 <TD className="text-right">{b.quantity}</TD>
                 <TD className="text-muted-foreground">{b.unit || "—"}</TD>
-                <TD className="text-right">{formatMoney(b.unitPrice, b.currency)}</TD>
-                <TD className="text-right font-medium">{formatMoney(b.amount, b.currency)}</TD>
+                <TD className="text-right">{formatMoney(b.unitPrice, b.currency, 2)}</TD>
+                <TD className="text-right font-medium">{formatMoney(b.amount, b.currency, 2)}</TD>
                 <TD className="text-right text-muted-foreground">
                   {b.transferFeePercent != null ? `%${b.transferFeePercent}` : "—"}
                 </TD>
                 <TD className="text-right text-muted-foreground">
-                  {b.transferPrice != null ? formatMoney(b.transferPrice, b.currency) : "—"}
+                  {b.transferPrice != null ? formatMoney(b.transferPrice, b.currency, 2) : "—"}
                 </TD>
                 <TD className="text-right text-muted-foreground">
-                  {b.currency === "TRY" ? "—" : formatMoney(b.amountTRY)}
+                  {b.currency === "TRY" ? "—" : formatMoney(b.amountTRY, "TRY", 2)}
                 </TD>
                 <TD>
                   <Button
@@ -1174,10 +1174,10 @@ function InvoicesTab({
                 <TD>{inv.poNumber || "—"}</TD>
                 <TD className="text-muted-foreground">{formatDate(inv.issueDate)}</TD>
                 <TD className="text-right font-medium">
-                  {formatMoney(inv.amount, inv.currency)}
+                  {formatMoney(inv.amount, inv.currency, 2)}
                 </TD>
                 <TD className="text-right text-muted-foreground">
-                  {inv.currency === "TRY" ? "—" : formatMoney(inv.amountTRY)}
+                  {inv.currency === "TRY" ? "—" : formatMoney(inv.amountTRY, "TRY", 2)}
                 </TD>
                 <TD>
                   <Select
@@ -1421,10 +1421,10 @@ function PaymentPlanTab({
                 <TD className="font-medium">{item.description}</TD>
                 <TD className="text-muted-foreground">{formatDate(item.dueDate)}</TD>
                 <TD className="text-right font-medium">
-                  {formatMoney(item.amount, item.currency)}
+                  {formatMoney(item.amount, item.currency, 2)}
                 </TD>
                 <TD className="text-right text-muted-foreground">
-                  {item.currency === "TRY" ? "—" : formatMoney(item.amountTRY)}
+                  {item.currency === "TRY" ? "—" : formatMoney(item.amountTRY, "TRY", 2)}
                 </TD>
                 <TD className="text-muted-foreground">{item.note || "—"}</TD>
                 <TD>
