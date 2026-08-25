@@ -1089,14 +1089,17 @@ function InvoicesTab({
   const [open, setOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDTO | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasExchangeRateDiff, setHasExchangeRateDiff] = useState(false);
 
   function openAddDialog() {
     setEditingInvoice(null);
+    setHasExchangeRateDiff(false);
     setOpen(true);
   }
 
   function openEditDialog(inv: InvoiceDTO) {
     setEditingInvoice(inv);
+    setHasExchangeRateDiff(inv.hasExchangeRateDiff);
     setOpen(true);
   }
 
@@ -1111,8 +1114,12 @@ function InvoicesTab({
       issueDate: String(fd.get("issueDate")),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: fd.get("status") as any,
-      ebaNumber: fd.get("ebaNumber") ? String(fd.get("ebaNumber")) : undefined,
+      ebaNumber: String(fd.get("ebaNumber")),
       poNumber: fd.get("poNumber") ? String(fd.get("poNumber")) : undefined,
+      hasExchangeRateDiff,
+      exchangeRateDiffEbaNumber: hasExchangeRateDiff
+        ? String(fd.get("exchangeRateDiffEbaNumber") ?? "")
+        : undefined,
     };
     if (editingInvoice) {
       await updateInvoice(editingInvoice.id, input);
@@ -1138,6 +1145,7 @@ function InvoicesTab({
             <TR>
               <TH>Açıklama</TH>
               <TH>EBA No</TH>
+              <TH>Kur Farkı EBA No</TH>
               <TH>P.O. No</TH>
               <TH>Kesim Tarihi</TH>
               <TH className="text-right">Tutar</TH>
@@ -1151,6 +1159,7 @@ function InvoicesTab({
               <TR key={inv.id}>
                 <TD className="font-medium">{inv.description}</TD>
                 <TD>{inv.ebaNumber || "—"}</TD>
+                <TD>{inv.hasExchangeRateDiff ? inv.exchangeRateDiffEbaNumber || "—" : "—"}</TD>
                 <TD>{inv.poNumber || "—"}</TD>
                 <TD className="text-muted-foreground">{formatDate(inv.issueDate)}</TD>
                 <TD className="text-right font-medium">
@@ -1210,7 +1219,7 @@ function InvoicesTab({
             ))}
             {invoices.length === 0 && (
               <TR>
-                <TD colSpan={8} className="py-8 text-center text-muted-foreground">
+                <TD colSpan={9} className="py-8 text-center text-muted-foreground">
                   Fatura kaydı yok.
                 </TD>
               </TR>
@@ -1271,8 +1280,8 @@ function InvoicesTab({
               <Label>EBA No</Label>
               <Input
                 name="ebaNumber"
-                placeholder="Opsiyonel"
                 defaultValue={editingInvoice?.ebaNumber ?? ""}
+                required
               />
             </div>
             <div>
@@ -1283,6 +1292,28 @@ function InvoicesTab({
                 defaultValue={editingInvoice?.poNumber ?? ""}
               />
             </div>
+            <div className="col-span-2 flex items-center gap-2">
+              <input
+                id="hasExchangeRateDiff"
+                type="checkbox"
+                className="h-4 w-4"
+                checked={hasExchangeRateDiff}
+                onChange={(e) => setHasExchangeRateDiff(e.target.checked)}
+              />
+              <Label htmlFor="hasExchangeRateDiff" className="!mb-0">
+                Kur Farkı
+              </Label>
+            </div>
+            {hasExchangeRateDiff && (
+              <div className="col-span-2">
+                <Label>Kur Farkı EBA No</Label>
+                <Input
+                  name="exchangeRateDiffEbaNumber"
+                  defaultValue={editingInvoice?.exchangeRateDiffEbaNumber ?? ""}
+                  required
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button

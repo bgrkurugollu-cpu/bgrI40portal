@@ -188,6 +188,8 @@ model Invoice {
   status      InvoiceStatus @default(PLANNED)
   ebaNumber   String?
   poNumber    String?
+  hasExchangeRateDiff      Boolean @default(false) // Kur farkı oluştu mu
+  exchangeRateDiffEbaNumber String? // Kur farkı eBA No
 
   @@index([issueDate])
 }

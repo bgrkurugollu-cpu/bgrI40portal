@@ -133,6 +133,8 @@ export default async function ProjectDetailPage({
       status: i.status,
       ebaNumber: i.ebaNumber,
       poNumber: i.poNumber,
+      hasExchangeRateDiff: i.hasExchangeRateDiff,
+      exchangeRateDiffEbaNumber: i.exchangeRateDiffEbaNumber,
     };
   });
 

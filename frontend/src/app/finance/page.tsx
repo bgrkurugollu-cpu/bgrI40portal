@@ -35,6 +35,8 @@ export default async function FinancePage() {
         status: true,
         ebaNumber: true,
         poNumber: true,
+        hasExchangeRateDiff: true,
+        exchangeRateDiffEbaNumber: true,
         project: { select: { name: true, projectCode: true } },
       },
       orderBy: { issueDate: "asc" },
@@ -76,6 +78,8 @@ export default async function FinancePage() {
       status: i.status,
       ebaNumber: i.ebaNumber,
       poNumber: i.poNumber,
+      hasExchangeRateDiff: i.hasExchangeRateDiff,
+      exchangeRateDiffEbaNumber: i.exchangeRateDiffEbaNumber,
     };
   });
 

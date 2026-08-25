@@ -98,6 +98,8 @@ export type InvoiceDTO = {
   status: string;
   ebaNumber: string | null;
   poNumber: string | null;
+  hasExchangeRateDiff: boolean;
+  exchangeRateDiffEbaNumber: string | null;
 };
 
 export type LogDTO = {
