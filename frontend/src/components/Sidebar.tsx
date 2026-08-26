@@ -14,6 +14,7 @@ import {
   Sun,
   Factory,
   FileStack,
+  Banknote,
   ShieldCheck,
   ChevronsUpDown,
   X,
@@ -30,6 +31,7 @@ const nav = [
   { href: "/pt", label: "PT Kodları", icon: FileStack },
   { href: "/resources", label: "Kaynak Planı", icon: Users },
   { href: "/finance", label: "Bütçe & Finans", icon: Wallet },
+  { href: "/capex", label: "CAPEX Bütçesi", icon: Banknote },
   { href: "/licenses", label: "Lisanslar", icon: KeyRound },
 ];
 

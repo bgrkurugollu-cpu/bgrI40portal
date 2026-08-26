@@ -208,3 +208,36 @@ export type ProjectTaskDTO = {
   order: number;
   assignees: TaskAssigneeDTO[];
 };
+
+// ── Dijital CAPEX Bütçesi ─────────────────────────────────
+
+export type CapexSubItemDTO = {
+  id: string;
+  mainItemId: string;
+  title: string;
+  budget: number;
+  note: string | null;
+  order: number;
+};
+
+export type CapexMainItemDTO = {
+  id: string;
+  capexBudgetId: string;
+  title: string;
+  budget: number;
+  spent: number;
+  description: string | null;
+  order: number;
+  factoryIds: string[];
+  factoryNames: string[];
+  subItems: CapexSubItemDTO[];
+};
+
+export type CapexBudgetDTO = {
+  id: string;
+  year: number;
+  currency: CurrencyCode;
+  title: string | null;
+  totalBudget: number;
+  mainItems: CapexMainItemDTO[];
+};

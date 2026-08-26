@@ -22,11 +22,12 @@ model User {
 // ── Ortak ───────────────────────────────────────────────
 
 model Factory {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  location String?
-  projects Project[]
-  licenses License[]
+  id             String          @id @default(cuid())
+  name           String          @unique
+  location       String?
+  projects       Project[]
+  licenses       License[]
+  capexMainItems CapexMainItem[]
 }
 
 model TeamMember {
@@ -364,4 +365,49 @@ model TaskWeekAllocation {
 
   @@unique([taskAssigneeId, year, week])
   @@index([year, week])
+}
+
+// ── Modül 6: Dijital CAPEX Bütçesi ─────────────────────
+// Yıllık onaylanan CAPEX bütçesinin ana kalem → alt proje kırılımı.
+// Düzenleme yalnızca admin; herkes interaktif salt-okunur olarak görebilir.
+
+model CapexBudget {
+  id          String   @id @default(cuid())
+  year        Int      @unique
+  currency    Currency @default(TRY)
+  title       String?
+  totalBudget Decimal  @default(0) @db.Decimal(14, 2) // onaylanan yıllık toplam (0 ise ana kalem toplamı esas alınır)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mainItems CapexMainItem[]
+}
+
+model CapexMainItem {
+  id            String      @id @default(cuid())
+  capexBudgetId String
+  capexBudget   CapexBudget @relation(fields: [capexBudgetId], references: [id], onDelete: Cascade)
+  factories     Factory[]
+  title         String
+  budget        Decimal     @default(0) @db.Decimal(14, 2)
+  spent         Decimal     @default(0) @db.Decimal(14, 2) // alt proje kırılımı yoksa doğrudan kullanılan tutar
+  description   String?
+  order         Int         @default(0)
+
+  subItems CapexSubItem[]
+
+  @@index([capexBudgetId])
+}
+
+// Bir ana kalemin altındaki proje/kırılım — kendi bütçesi ana kalemden pay alır
+model CapexSubItem {
+  id         String        @id @default(cuid())
+  mainItemId String
+  mainItem   CapexMainItem @relation(fields: [mainItemId], references: [id], onDelete: Cascade)
+  title      String
+  budget     Decimal       @default(0) @db.Decimal(14, 2)
+  note       String?
+  order      Int           @default(0)
+
+  @@index([mainItemId])
 }
