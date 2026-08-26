@@ -35,6 +35,8 @@ function projectValue(p: ProjectDTO, key: string): SortValue {
   switch (key) {
     case "code":
       return p.projectCode;
+    case "pipelineCode":
+      return p.pipelineCode ?? "";
     case "name":
       return p.name;
     case "factory":
@@ -76,6 +78,7 @@ export function ProjectsClient({
     return projects.filter(
       (p) =>
         p.projectCode.toLocaleLowerCase("tr").includes(q) ||
+        (p.pipelineCode ?? "").toLocaleLowerCase("tr").includes(q) ||
         p.name.toLocaleLowerCase("tr").includes(q) ||
         p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
     );
@@ -129,6 +132,7 @@ export function ProjectsClient({
           <THead>
             <TR>
               <SortTH label="Kodu" col="code" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Pipeline Kodu (PTM)" col="pipelineCode" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="Proje İsmi" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="Fabrika" col="factory" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="İhtimal" col="probability" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
@@ -145,6 +149,9 @@ export function ProjectsClient({
               <TR key={p.id}>
                 <TD className="font-mono text-xs font-bold text-muted-foreground">
                   {p.projectCode}
+                </TD>
+                <TD className="font-mono text-xs text-muted-foreground">
+                  {p.pipelineCode || "—"}
                 </TD>
                 <TD>
                   <Link
@@ -212,7 +219,7 @@ export function ProjectsClient({
             ))}
             {sorted.length === 0 && (
               <TR>
-                <TD colSpan={10} className="py-10 text-center text-muted-foreground">
+                <TD colSpan={11} className="py-10 text-center text-muted-foreground">
                   {query.trim()
                     ? "Aramanızla eşleşen proje bulunamadı."
                     : "Henüz proje yok. “Yeni Proje” ile başlayın."}

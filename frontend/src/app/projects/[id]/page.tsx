@@ -50,6 +50,7 @@ export default async function ProjectDetailPage({
   const dto: ProjectDTO = {
     id: project.id,
     projectCode: project.projectCode,
+    pipelineCode: project.pipelineCode,
     name: project.name,
     factoryIds: project.factories.map((f) => f.id),
     factoryNames: project.factories.map((f) => f.name),

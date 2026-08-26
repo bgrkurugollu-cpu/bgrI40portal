@@ -7,6 +7,7 @@ import type { Priority, ProjectStatus, RiskLevel } from "@prisma/client";
 
 type ProjectInput = {
   projectCode: string;
+  pipelineCode: string | null;
   name: string;
   factoryIds: string[];
   probability: number;
@@ -72,6 +73,7 @@ export async function updateProject(id: string, input: ProjectInput) {
   // Tarihsel log: değişen her skalar alan için kayıt (fabrika ayrı ele alınır)
   const fields: (keyof typeof next)[] = [
     "projectCode",
+    "pipelineCode",
     "name",
     "probability",
     "targetBudget",

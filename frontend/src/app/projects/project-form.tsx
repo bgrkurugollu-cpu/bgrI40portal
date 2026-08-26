@@ -35,6 +35,7 @@ export function ProjectForm({
     const fd = new FormData(e.currentTarget);
     const input = {
       projectCode: String(fd.get("projectCode")),
+      pipelineCode: (fd.get("pipelineCode") as string) || null,
       name: String(fd.get("name")),
       factoryIds,
       probability: Number(fd.get("probability")),
@@ -66,6 +67,15 @@ export function ProjectForm({
         <div>
           <Label htmlFor="projectCode">Proje Kodu</Label>
           <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="Serbest kod (örn. PRJ-101, Demand, D-12)" required />
+        </div>
+        <div>
+          <Label htmlFor="pipelineCode">Pipeline Kodu (PTM)</Label>
+          <Input
+            id="pipelineCode"
+            name="pipelineCode"
+            defaultValue={project?.pipelineCode ?? ""}
+            placeholder="Örn. PTM-1234"
+          />
         </div>
         <div>
           <Label htmlFor="name">Proje Adı</Label>

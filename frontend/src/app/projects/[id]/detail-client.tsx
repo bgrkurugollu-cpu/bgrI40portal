@@ -152,6 +152,11 @@ export function ProjectDetailClient(props: {
             <span className="font-mono text-xl text-muted-foreground bg-muted px-2 py-0.5 rounded">
               {project.projectCode}
             </span>
+            {project.pipelineCode && (
+              <span className="font-mono text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                PTM: {project.pipelineCode}
+              </span>
+            )}
             {project.name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -1567,6 +1572,7 @@ function PaymentPlanTab({
 const FIELD_LABELS: Record<string, string> = {
   name: "Proje Adı",
   projectCode: "Proje Kodu",
+  pipelineCode: "Pipeline Kodu (PTM)",
   factories: "Fabrika(lar)",
   probability: "Gerçekleşme İhtimali",
   targetBudget: "Hedef Bütçe",

@@ -18,6 +18,7 @@ export type FactoryDTO = { id: string; name: string; location: string | null };
 export type ProjectDTO = {
   id: string;
   projectCode: string;
+  pipelineCode: string | null;
   name: string;
   factoryIds: string[];
   factoryNames: string[];
@@ -114,6 +115,44 @@ export type PaymentPlanItemDTO = {
   dueDate: string;
   status: string;
   note: string | null;
+};
+
+export type PtDTO = {
+  id: string;
+  ptCode: string;
+  pipelineCode: string | null;
+  name: string;
+  description: string | null;
+  status: string;
+};
+
+export type PtInvoiceDTO = {
+  id: string;
+  ptId: string;
+  ptCode?: string;
+  ptName?: string;
+  description: string;
+  amount: number;
+  currency: CurrencyCode;
+  amountTRY: number;
+  issueDate: string;
+  status: string;
+  ebaNumber: string | null;
+  poNumber: string | null;
+  hasExchangeRateDiff: boolean;
+  exchangeRateDiffEbaNumber: string | null;
+};
+
+export type PtMonthlyFinancialDTO = {
+  id: string;
+  ptId: string;
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  currency: CurrencyCode;
+  incomeTRY: number;
+  expenseTRY: number;
 };
 
 export type LogDTO = {

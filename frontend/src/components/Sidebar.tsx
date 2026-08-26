@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
   Factory,
+  FileStack,
   ShieldCheck,
   ChevronsUpDown,
   X,
@@ -26,6 +27,7 @@ import { useTheme } from "@/context/ThemeContext";
 const nav = [
   { href: "/", label: "Genel Bakış", icon: LayoutDashboard },
   { href: "/projects", label: "Projeler", icon: FolderKanban },
+  { href: "/pt", label: "PT Kodları", icon: FileStack },
   { href: "/resources", label: "Kaynak Planı", icon: Users },
   { href: "/finance", label: "Bütçe & Finans", icon: Wallet },
   { href: "/licenses", label: "Lisanslar", icon: KeyRound },

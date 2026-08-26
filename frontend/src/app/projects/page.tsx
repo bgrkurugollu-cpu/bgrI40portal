@@ -16,6 +16,7 @@ export default async function ProjectsPage() {
   const dtos: ProjectDTO[] = projects.map((p) => ({
     id: p.id,
     projectCode: p.projectCode,
+    pipelineCode: p.pipelineCode,
     name: p.name,
     factoryIds: p.factories.map((f) => f.id),
     factoryNames: p.factories.map((f) => f.name),
