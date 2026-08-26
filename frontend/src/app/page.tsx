@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db";
 import { getRates, toTRY } from "@/lib/rates";
 import type { CurrencyCode } from "@/lib/utils";
+import { requirePageView } from "@/lib/permission-guard";
 import { DashboardClient } from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requirePageView("dashboard");
   const year = new Date().getFullYear();
 
   const [rates, projects, financials, assignments, licenses, invoices, memberCount, ptFinancials, ptInvoices] =

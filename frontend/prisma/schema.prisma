@@ -17,6 +17,21 @@ model User {
   role         String       @default("USER")
   createdAt    DateTime     @default(now())
   projectLogs  ProjectLog[]
+  permissions  UserPagePermission[]
+}
+
+// Kullanıcı bazlı sayfa erişim/düzenleme yetkileri. Bir kullanıcı için bir sayfada
+// hiç kayıt yoksa, o sayfanın varsayılan politikası uygulanır (bkz. src/lib/permissions.ts
+// DEFAULT_EDIT) — böylece bu sistem devreye girmeden önceki davranış korunur.
+model UserPagePermission {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page    String
+  canView Boolean @default(true)
+  canEdit Boolean @default(false)
+
+  @@unique([userId, page])
 }
 
 // ── Ortak ───────────────────────────────────────────────

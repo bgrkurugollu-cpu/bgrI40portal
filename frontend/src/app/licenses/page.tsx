@@ -2,11 +2,13 @@ import { prisma } from "@/lib/db";
 import type { ApplicationDTO, FactoryDTO, LicenseDTO, RatesDTO } from "@/lib/types";
 import { getRates, toTRY } from "@/lib/rates";
 import type { CurrencyCode } from "@/lib/utils";
+import { requirePageView } from "@/lib/permission-guard";
 import { LicensesClient } from "./licenses-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function LicensesPage() {
+  await requirePageView("licenses");
   const [rates, licenses, applications, factories] = await Promise.all([
     getRates(),
     prisma.license.findMany({

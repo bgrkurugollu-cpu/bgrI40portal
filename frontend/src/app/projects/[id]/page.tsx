@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageView, getEffectivePermission } from "@/lib/permission-guard";
 import type {
   AssignmentDTO,
   BudgetItemDTO,
@@ -25,8 +25,9 @@ export default async function ProjectDetailPage({
 }) {
   const { id } = await params;
 
-  const session = await getSession();
-  const isAdmin = session?.role === "ADMIN";
+  const session = await requirePageView("projects");
+  const isAdmin =
+    session.role === "ADMIN" || (await getEffectivePermission(session.sub, "resources")).canEdit;
 
   const project = await prisma.project.findUnique({
     where: { id },

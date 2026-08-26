@@ -20,6 +20,7 @@ import {
   RefreshCw,
   DownloadCloud,
   FolderSync,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  setUserPermissions,
   upsertFactory,
   deleteFactory,
   upsertMember,
@@ -62,8 +64,17 @@ import {
   getTemplateHeaders,
 } from "@/lib/excel-helpers";
 import { cn, formatDate } from "@/lib/utils";
+import { APP_PAGES } from "@/lib/permissions";
 
-type UserRow = { id: string; name: string; email: string; role: string; createdAt: string };
+type UserPermissionRow = { page: string; canView: boolean; canEdit: boolean };
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  permissions: UserPermissionRow[];
+};
 type FactoryRow = {
   id: string;
   name: string;
@@ -176,6 +187,7 @@ function UsersTab({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(false);
+  const [permUser, setPermUser] = useState<UserRow | null>(null);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -255,6 +267,16 @@ function UsersTab({
                 <TD className="text-muted-foreground">{formatDate(u.createdAt)}</TD>
                 <TD>
                   <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Erişim Yetkileri"
+                      title={u.role === "ADMIN" ? "Admin tüm sayfalara tam yetkiyle erişir" : "Erişim Yetkileri"}
+                      disabled={u.role === "ADMIN"}
+                      onClick={() => setPermUser(u)}
+                    >
+                      <Lock className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -338,7 +360,130 @@ function UsersTab({
           </div>
         </form>
       </Dialog>
+
+      <PermissionsDialog user={permUser} onClose={() => setPermUser(null)} onError={onError} />
     </Card>
+  );
+}
+
+function PermissionsDialog({
+  user,
+  onClose,
+  onError,
+}: {
+  user: UserRow | null;
+  onClose: () => void;
+  onError: (e: string | null) => void;
+}) {
+  const [rows, setRows] = useState<Record<string, { canView: boolean; canEdit: boolean }>>({});
+  const [loading, setLoading] = useState(false);
+
+  // Kullanıcı değiştikçe (veya dialog açıldıkça) mevcut kayıtlarla / varsayılanlarla eşitle.
+  const key = user?.id ?? "";
+  const [loadedFor, setLoadedFor] = useState("");
+  if (user && loadedFor !== key) {
+    const initial: Record<string, { canView: boolean; canEdit: boolean }> = {};
+    for (const p of APP_PAGES) {
+      const existing = user.permissions.find((perm) => perm.page === p.key);
+      initial[p.key] = existing
+        ? { canView: existing.canView, canEdit: existing.canEdit }
+        : { canView: true, canEdit: p.defaultEdit };
+    }
+    setRows(initial);
+    setLoadedFor(key);
+  }
+
+  async function onSave() {
+    if (!user) return;
+    setLoading(true);
+    onError(null);
+    const res = await setUserPermissions(
+      user.id,
+      APP_PAGES.map((p) => ({ page: p.key, ...rows[p.key] }))
+    );
+    setLoading(false);
+    if (!res.ok) onError(res.error);
+    else close();
+  }
+
+  function close() {
+    setLoadedFor("");
+    onClose();
+  }
+
+  return (
+    <Dialog
+      open={!!user}
+      onClose={close}
+      title={user ? `Erişim Yetkileri — ${user.name}` : "Erişim Yetkileri"}
+    >
+      {user && (
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Görüntüleme kapatılan sayfa menüden gizlenir. Düzenleme kapatılan sayfada kullanıcı
+            yalnızca görüntüleyebilir, ekleme/güncelleme/silme yapamaz.
+          </p>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Sayfa</TH>
+                <TH className="text-center">Görüntüleme</TH>
+                <TH className="text-center">Düzenleme</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {APP_PAGES.map((p) => {
+                const row = rows[p.key] ?? { canView: true, canEdit: p.defaultEdit };
+                return (
+                  <TR key={p.key}>
+                    <TD className="font-medium">{p.label}</TD>
+                    <TD className="text-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={row.canView}
+                        onChange={(e) =>
+                          setRows((prev) => ({
+                            ...prev,
+                            [p.key]: { ...row, canView: e.target.checked },
+                          }))
+                        }
+                      />
+                    </TD>
+                    <TD className="text-center">
+                      {p.hasEdit ? (
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={row.canEdit}
+                          disabled={!row.canView}
+                          onChange={(e) =>
+                            setRows((prev) => ({
+                              ...prev,
+                              [p.key]: { ...row, canEdit: e.target.checked },
+                            }))
+                          }
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={close}>
+              Vazgeç
+            </Button>
+            <Button type="button" onClick={onSave} disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />} Kaydet
+            </Button>
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

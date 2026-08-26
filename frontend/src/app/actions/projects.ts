@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { Priority, ProjectStatus, RiskLevel } from "@prisma/client";
 
 type ProjectInput = {
@@ -21,8 +22,7 @@ type ProjectInput = {
 };
 
 export async function createProject(input: ProjectInput) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  const session = await requirePageEdit("projects");
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
@@ -51,8 +51,7 @@ export async function createProject(input: ProjectInput) {
 }
 
 export async function updateProject(id: string, input: ProjectInput) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  const session = await requirePageEdit("projects");
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
@@ -133,8 +132,7 @@ export async function updateProject(id: string, input: ProjectInput) {
 }
 
 export async function deleteProject(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   // Tüm ilişkili kayıtlar (atama, bütçe, finans, fatura, log) şemada
   // onDelete: Cascade olduğundan otomatik silinir.
   await prisma.project.delete({ where: { id } });
@@ -153,8 +151,7 @@ export async function upsertAssignment(input: {
   actualDays: number;
   resources?: string | null;
 }) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — efor girişi/silmesi sadece admin tarafından yapılabilir.");
+  await requirePageEdit("resources");
 
   await prisma.assignment.upsert({
     where: {
@@ -177,8 +174,7 @@ export async function upsertAssignment(input: {
 }
 
 export async function deleteAssignment(id: string, projectId: string) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — efor girişi/silmesi sadece admin tarafından yapılabilir.");
+  await requirePageEdit("resources");
   await prisma.assignment.delete({ where: { id } });
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/resources");

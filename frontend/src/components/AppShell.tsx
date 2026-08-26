@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 
 export function AppShell({
   authed,
+  visiblePages,
   children,
 }: {
   authed: boolean;
+  visiblePages: string[] | null;
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -19,11 +21,12 @@ export function AppShell({
 
   return (
     <div className="min-h-screen">
-      <Sidebar 
-        open={mobileOpen} 
-        onClose={() => setMobileOpen(false)} 
+      <Sidebar
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
         desktopExpanded={desktopExpanded}
         onToggleDesktop={() => setDesktopExpanded((prev) => !prev)}
+        visiblePages={visiblePages}
       />
 
       {/* Mobil üst çubuk — sadece md altında görünür, sandviç menü butonu */}

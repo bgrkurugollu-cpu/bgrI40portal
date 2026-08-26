@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { Currency, InvoiceStatus, ProjectStatus } from "@prisma/client";
 
 // Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
@@ -15,8 +15,7 @@ export async function createPt(input: {
   description?: string | null;
   status: ProjectStatus;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
 
   const pt = await prisma.pt.create({ data: input });
   revalidatePath("/pt");
@@ -33,8 +32,7 @@ export async function updatePt(
     status: ProjectStatus;
   }
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
 
   await prisma.pt.update({ where: { id }, data: input });
   revalidatePath(`/pt/${id}`);
@@ -42,8 +40,7 @@ export async function updatePt(
 }
 
 export async function deletePt(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
   // İlişkili faturalar ve aylık finans kayıtları şemada onDelete: Cascade olduğundan otomatik silinir.
   await prisma.pt.delete({ where: { id } });
   revalidatePath("/pt");
@@ -63,8 +60,7 @@ export async function addPtInvoice(input: {
   hasExchangeRateDiff?: boolean;
   exchangeRateDiffEbaNumber?: string;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
 
   await prisma.ptInvoice.create({
     data: { ...input, issueDate: new Date(input.issueDate) },
@@ -86,8 +82,7 @@ export async function updatePtInvoice(
     exchangeRateDiffEbaNumber?: string;
   }
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
 
   const inv = await prisma.ptInvoice.update({
     where: { id },
@@ -97,15 +92,13 @@ export async function updatePtInvoice(
 }
 
 export async function updatePtInvoiceStatus(id: string, status: InvoiceStatus) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
   const inv = await prisma.ptInvoice.update({ where: { id }, data: { status } });
   revalidatePath(`/pt/${inv.ptId}`);
 }
 
 export async function deletePtInvoice(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
   const inv = await prisma.ptInvoice.delete({ where: { id } });
   revalidatePath(`/pt/${inv.ptId}`);
 }
@@ -120,8 +113,7 @@ export async function upsertPtMonthlyFinancial(input: {
   income?: number;
   currency: Currency;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("pt");
 
   const minIncome = Math.round(input.expense * INCOME_MARKUP * 100) / 100;
   const income = Math.max(input.income ?? minIncome, minIncome);

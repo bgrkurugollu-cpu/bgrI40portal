@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { BudgetExpenseType, Currency, InvoiceStatus, PaymentStatus } from "@prisma/client";
 
 // Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
@@ -17,8 +17,7 @@ export async function upsertMonthlyFinancial(input: {
   internalIncome: number;
   currency: Currency;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   // Gelir en az gider*%5 olmalı; kullanıcı bunun üzerinde bir değer girmişse o kullanılır.
   const minIncome = Math.round(input.expense * INCOME_MARKUP * 100) / 100;
@@ -69,8 +68,7 @@ export async function addBudgetItem(input: {
   note?: string;
   transferFeePercent?: number;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   // Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
   const amount = input.quantity * input.unitPrice;
@@ -83,8 +81,7 @@ export async function addBudgetItem(input: {
 }
 
 export async function deleteBudgetItem(id: string, projectId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   await prisma.budgetItem.delete({ where: { id } });
   revalidatePath(`/projects/${projectId}`);
 }
@@ -108,8 +105,7 @@ export async function importBudgetItemsForProject(
   projectId: string,
   items: ImportedBudgetItem[]
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   await prisma.budgetItem.createMany({
     data: items.map((it) => ({
@@ -145,8 +141,7 @@ export async function addInvoice(input: {
   hasExchangeRateDiff?: boolean;
   exchangeRateDiffEbaNumber?: string;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   await prisma.invoice.create({
     data: { ...input, issueDate: new Date(input.issueDate) },
@@ -169,8 +164,7 @@ export async function updateInvoice(
     exchangeRateDiffEbaNumber?: string;
   }
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const inv = await prisma.invoice.update({
     where: { id },
@@ -181,16 +175,14 @@ export async function updateInvoice(
 }
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   const inv = await prisma.invoice.update({ where: { id }, data: { status } });
   revalidatePath(`/projects/${inv.projectId}`);
   revalidatePath("/finance");
 }
 
 export async function deleteInvoice(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   const inv = await prisma.invoice.delete({ where: { id } });
   revalidatePath(`/projects/${inv.projectId}`);
   revalidatePath("/finance");
@@ -207,8 +199,7 @@ export async function addPaymentPlanItem(input: {
   status: PaymentStatus;
   note?: string;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   await prisma.paymentPlanItem.create({
     data: { ...input, dueDate: new Date(input.dueDate) },
@@ -228,8 +219,7 @@ export async function updatePaymentPlanItem(
     note?: string;
   }
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const item = await prisma.paymentPlanItem.update({
     where: { id },
@@ -240,16 +230,14 @@ export async function updatePaymentPlanItem(
 }
 
 export async function updatePaymentPlanStatus(id: string, status: PaymentStatus) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   const item = await prisma.paymentPlanItem.update({ where: { id }, data: { status } });
   revalidatePath(`/projects/${item.projectId}`);
   revalidatePath("/finance");
 }
 
 export async function deletePaymentPlanItem(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
   const item = await prisma.paymentPlanItem.delete({ where: { id } });
   revalidatePath(`/projects/${item.projectId}`);
   revalidatePath("/finance");

@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db";
 import type { PtDTO } from "@/lib/types";
+import { requirePageView } from "@/lib/permission-guard";
 import { PtClient } from "./pt-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PtPage() {
+  await requirePageView("pt");
   const items = await prisma.pt.findMany({ orderBy: { createdAt: "desc" } });
 
   const dtos: PtDTO[] = items.map((p) => ({

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageView, getEffectivePermission } from "@/lib/permission-guard";
 import type { CapexBudgetDTO } from "@/lib/types";
 import type { CurrencyCode } from "@/lib/utils";
 import { CapexClient } from "./capex-client";
@@ -7,8 +7,9 @@ import { CapexClient } from "./capex-client";
 export const dynamic = "force-dynamic";
 
 export default async function CapexPage() {
-  const session = await getSession();
-  const isAdmin = session?.role === "ADMIN";
+  const session = await requirePageView("capex");
+  const isAdmin =
+    session.role === "ADMIN" || (await getEffectivePermission(session.sub, "capex")).canEdit;
 
   const [budgets, factories] = await Promise.all([
     prisma.capexBudget.findMany({

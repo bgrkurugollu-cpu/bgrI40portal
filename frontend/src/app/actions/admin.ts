@@ -71,6 +71,26 @@ export async function deleteUser(id: string): Promise<Result> {
   return { ok: true };
 }
 
+// ── Sayfa Erişim Yetkileri ──────────────────────────────
+
+export async function setUserPermissions(
+  userId: string,
+  permissions: { page: string; canView: boolean; canEdit: boolean }[]
+): Promise<Result> {
+  await requireAdmin();
+  await prisma.$transaction(
+    permissions.map((p) =>
+      prisma.userPagePermission.upsert({
+        where: { userId_page: { userId, page: p.page } },
+        create: { userId, page: p.page, canView: p.canView, canEdit: p.canEdit },
+        update: { canView: p.canView, canEdit: p.canEdit },
+      })
+    )
+  );
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 // ── Fabrikalar ──────────────────────────────────────────
 
 export async function upsertFactory(input: {

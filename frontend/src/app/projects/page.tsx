@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db";
 import type { ProjectDTO } from "@/lib/types";
+import { requirePageView } from "@/lib/permission-guard";
 import { ProjectsClient } from "./projects-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
+  await requirePageView("projects");
   const [projects, factories] = await Promise.all([
     prisma.project.findMany({
       include: { factories: true },

@@ -26,13 +26,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 
 const nav = [
-  { href: "/", label: "Genel Bakış", icon: LayoutDashboard },
-  { href: "/projects", label: "Projeler", icon: FolderKanban },
-  { href: "/pt", label: "PT Kodları", icon: FileStack },
-  { href: "/resources", label: "Kaynak Planı", icon: Users },
-  { href: "/finance", label: "Bütçe & Finans", icon: Wallet },
-  { href: "/capex", label: "CAPEX Bütçesi", icon: Banknote },
-  { href: "/licenses", label: "Lisanslar", icon: KeyRound },
+  { href: "/", label: "Genel Bakış", icon: LayoutDashboard, page: "dashboard" },
+  { href: "/projects", label: "Projeler", icon: FolderKanban, page: "projects" },
+  { href: "/pt", label: "PT Kodları", icon: FileStack, page: "pt" },
+  { href: "/resources", label: "Kaynak Planı", icon: Users, page: "resources" },
+  { href: "/finance", label: "Bütçe & Finans", icon: Wallet, page: "finance" },
+  { href: "/capex", label: "CAPEX Bütçesi", icon: Banknote, page: "capex" },
+  { href: "/licenses", label: "Lisanslar", icon: KeyRound, page: "licenses" },
 ];
 
 export function Sidebar({
@@ -40,14 +40,17 @@ export function Sidebar({
   onClose,
   desktopExpanded = false,
   onToggleDesktop,
+  visiblePages,
 }: {
   open: boolean;
   onClose: () => void;
   desktopExpanded?: boolean;
   onToggleDesktop?: () => void;
+  visiblePages: string[] | null;
 }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const visibleNav = visiblePages ? nav.filter((n) => visiblePages.includes(n.page)) : nav;
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -115,7 +118,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {nav.map(({ href, label, icon: Icon }) => {
+        {visibleNav.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (

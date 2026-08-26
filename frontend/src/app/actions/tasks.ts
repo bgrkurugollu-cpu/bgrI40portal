@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { TaskType } from "@prisma/client";
 import { isoWeekMonday } from "@/lib/isoweek";
 
@@ -18,8 +18,7 @@ export async function createTask(input: {
   endDate: string;
   order?: number;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const task = await prisma.projectTask.create({
     data: {
@@ -47,8 +46,7 @@ export async function updateTask(
     endDate: string;
   }
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const task = await prisma.projectTask.update({
     where: { id },
@@ -79,8 +77,7 @@ async function getDescendantTaskIds(taskId: string): Promise<string[]> {
 }
 
 export async function deleteTask(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const task = await prisma.projectTask.findUniqueOrThrow({
     where: { id },
@@ -109,8 +106,7 @@ export async function deleteTask(id: string) {
 // ── Atama ────────────────────────────────────────────────
 
 export async function setTaskAssignees(taskId: string, memberIds: string[]) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const task = await prisma.projectTask.findUniqueOrThrow({
     where: { id: taskId },
@@ -142,8 +138,7 @@ export async function upsertWeekAllocation(input: {
   week: number;
   days: number;
 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("projects");
 
   const ta = await prisma.taskAssignee.findUniqueOrThrow({
     where: { id: input.taskAssigneeId },

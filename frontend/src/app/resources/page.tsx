@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageView, getEffectivePermission } from "@/lib/permission-guard";
 import type { AssignmentDTO, MemberDTO } from "@/lib/types";
 import { ResourcesClient } from "./resources-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResourcesPage() {
-  const session = await getSession();
-  const isAdmin = session?.role === "ADMIN";
+  const session = await requirePageView("resources");
+  const isAdmin =
+    session.role === "ADMIN" || (await getEffectivePermission(session.sub, "resources")).canEdit;
   const [assignments, members, projects] = await Promise.all([
     prisma.assignment.findMany({
       // Yalnızca DTO'nun kullandığı alanlar — ilişkili satırların tamamı çekilmez,

@@ -2,11 +2,13 @@ import { prisma } from "@/lib/db";
 import type { FinancialDTO, InvoiceDTO, RatesDTO } from "@/lib/types";
 import { getRates, toTRY } from "@/lib/rates";
 import type { CurrencyCode } from "@/lib/utils";
+import { requirePageView } from "@/lib/permission-guard";
 import { FinanceClient } from "./finance-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function FinancePage() {
+  await requirePageView("finance");
   const [rates, financials, invoices, projects, ptFinancials, ptInvoices, pts] = await Promise.all([
     getRates(),
     prisma.monthlyFinancial.findMany({

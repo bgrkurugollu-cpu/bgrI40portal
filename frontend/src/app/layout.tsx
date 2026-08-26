@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { getSession } from "@/lib/auth";
+import { getVisiblePageKeys } from "@/lib/permission-guard";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AppShell } from "@/components/AppShell";
@@ -16,6 +17,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
+  // null = kısıtlama yok (admin veya oturum yok); dizi = yalnızca bu sayfalar görünür.
+  const visiblePages =
+    session && session.role !== "ADMIN"
+      ? Array.from((await getVisiblePageKeys(session.sub, session.role)) ?? [])
+      : null;
 
   return (
     <html lang="tr" suppressHydrationWarning>
@@ -33,7 +39,9 @@ export default async function RootLayout({
                 : null
             }
           >
-            <AppShell authed={!!session}>{children}</AppShell>
+            <AppShell authed={!!session} visiblePages={visiblePages}>
+              {children}
+            </AppShell>
           </AuthProvider>
         </ThemeProvider>
       </body>

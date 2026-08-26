@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { Currency, LicenseStatus, PaymentPeriod } from "@prisma/client";
 
 type LicenseInput = {
@@ -20,8 +20,7 @@ type LicenseInput = {
 };
 
 export async function createLicense(input: LicenseInput) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("licenses");
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const { factoryIds, renewalDate, ...rest } = input;
@@ -37,8 +36,7 @@ export async function createLicense(input: LicenseInput) {
 }
 
 export async function updateLicense(id: string, input: LicenseInput) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("licenses");
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const { factoryIds, renewalDate, ...rest } = input;
@@ -54,15 +52,13 @@ export async function updateLicense(id: string, input: LicenseInput) {
 }
 
 export async function deleteLicense(id: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("licenses");
   await prisma.license.delete({ where: { id } });
   revalidatePath("/licenses");
 }
 
 export async function createApplication(input: { name: string; vendor: string | null }) {
-  const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  await requirePageEdit("licenses");
   const app = await prisma.application.create({ data: input });
   revalidatePath("/licenses");
   return { id: app.id };

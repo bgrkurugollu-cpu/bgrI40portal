@@ -2,14 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requirePageEdit } from "@/lib/permission-guard";
 import type { Currency } from "@prisma/client";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN")
-    throw new Error("Yetkisiz — CAPEX bütçesi düzenlemesi yalnızca admin tarafından yapılabilir.");
-  return session;
+function requireAdmin() {
+  return requirePageEdit("capex");
 }
 
 // ── Yıllık Bütçe Kabı ────────────────────────────────────

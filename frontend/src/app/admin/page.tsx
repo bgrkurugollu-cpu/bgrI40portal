@@ -9,7 +9,7 @@ export default async function AdminPage() {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/");
 
-  const [users, factories, members, applications] = await Promise.all([
+  const [users, factories, members, applications, permissionRows] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.factory.findMany({
       include: { _count: { select: { projects: true, licenses: true } } },
@@ -23,6 +23,7 @@ export default async function AdminPage() {
       include: { _count: { select: { licenses: true } } },
       orderBy: { name: "asc" },
     }),
+    prisma.userPagePermission.findMany(),
   ]);
 
   return (
@@ -34,6 +35,9 @@ export default async function AdminPage() {
         email: u.email,
         role: u.role,
         createdAt: u.createdAt.toISOString(),
+        permissions: permissionRows
+          .filter((p) => p.userId === u.id)
+          .map((p) => ({ page: p.page, canView: p.canView, canEdit: p.canEdit })),
       }))}
       factories={factories.map((f) => ({
         id: f.id,

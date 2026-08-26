@@ -3,12 +3,14 @@ import { prisma } from "@/lib/db";
 import type { PtDTO, PtInvoiceDTO, PtMonthlyFinancialDTO, RatesDTO } from "@/lib/types";
 import { getRates, toTRY } from "@/lib/rates";
 import type { CurrencyCode } from "@/lib/utils";
+import { requirePageView } from "@/lib/permission-guard";
 import { PtDetailClient } from "./detail-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requirePageView("pt");
 
   const [pt, rates] = await Promise.all([
     prisma.pt.findUnique({
