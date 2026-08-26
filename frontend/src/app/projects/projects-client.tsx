@@ -31,6 +31,15 @@ const statusTone = (s: string) =>
 // Risk/Öncelik için mantıksal sıralama (alfabetik değil).
 const LEVEL_RANK: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 
+// Durum sütunu için mantıksal sıralama: aktif projeler üstte, tamamlananlar en altta.
+const STATUS_RANK: Record<string, number> = {
+  ACTIVE: 1,
+  PLANNED: 2,
+  ON_HOLD: 3,
+  CANCELLED: 4,
+  COMPLETED: 5,
+};
+
 function projectValue(p: ProjectDTO, key: string): SortValue {
   switch (key) {
     case "code":
@@ -52,7 +61,7 @@ function projectValue(p: ProjectDTO, key: string): SortValue {
     case "priority":
       return LEVEL_RANK[p.priority] ?? 0;
     case "status":
-      return STATUS_LABELS[p.status] ?? p.status;
+      return STATUS_RANK[p.status] ?? 0;
     default:
       return null;
   }
@@ -84,7 +93,9 @@ export function ProjectsClient({
     );
   }, [projects, query]);
 
-  const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, projectValue);
+  const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, projectValue, {
+    key: "status",
+  });
 
   async function onDelete(p: ProjectDTO) {
     if (
@@ -146,7 +157,14 @@ export function ProjectsClient({
           </THead>
           <TBody>
             {sorted.map((p) => (
-              <TR key={p.id}>
+              <TR
+                key={p.id}
+                className={
+                  p.status === "COMPLETED"
+                    ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+                    : undefined
+                }
+              >
                 <TD className="font-mono text-xs font-bold text-muted-foreground">
                   {p.projectCode}
                 </TD>
