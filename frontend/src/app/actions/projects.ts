@@ -154,7 +154,7 @@ export async function upsertAssignment(input: {
   resources?: string | null;
 }) {
   const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — efor girişi/silmesi sadece admin tarafından yapılabilir.");
 
   await prisma.assignment.upsert({
     where: {
@@ -178,8 +178,25 @@ export async function upsertAssignment(input: {
 
 export async function deleteAssignment(id: string, projectId: string) {
   const session = await getSession();
-  if (!session) throw new Error("Yetkisiz");
+  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — efor girişi/silmesi sadece admin tarafından yapılabilir.");
   await prisma.assignment.delete({ where: { id } });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/resources");
+}
+
+// Bir kullanıcı, kendi planlanan eforunun üzerine tıklayarak "gerçekleşti" olarak
+// işaretleyebilir (actualDays = plannedDays). Tekrar tıklarsa geri alınır. Admin kısıtı yok.
+export async function toggleAssignmentRealized(id: string, projectId: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Yetkisiz");
+
+  const a = await prisma.assignment.findUniqueOrThrow({ where: { id } });
+  const planned = Number(a.plannedDays);
+  const isRealized = Number(a.actualDays) === planned && planned > 0;
+  await prisma.assignment.update({
+    where: { id },
+    data: { actualDays: isRealized ? 0 : planned },
+  });
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/resources");
 }

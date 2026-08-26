@@ -185,3 +185,26 @@ export type LicenseDTO = {
 };
 
 export type ApplicationDTO = { id: string; name: string; vendor: string | null };
+
+// ── Proje Planı (Gantt) ──────────────────────────────────
+
+export type TaskAssigneeDTO = {
+  id: string; // TaskAssignee id
+  memberId: string;
+  memberName: string;
+  // key: `${year}-${week}` → gün sayısı
+  weekAllocations: Record<string, number>;
+};
+
+export type ProjectTaskDTO = {
+  id: string;
+  projectId: string;
+  parentId: string | null;
+  title: string;
+  type: "TASK" | "MILESTONE";
+  color: string;
+  startDate: string;
+  endDate: string;
+  order: number;
+  assignees: TaskAssigneeDTO[];
+};

@@ -16,6 +16,8 @@ import {
   Upload,
   Download,
   Wallet,
+  CalendarRange,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +28,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ProjectForm } from "../project-form";
+import { ProjectPlanTab } from "./plan-tab";
 import {
   upsertAssignment,
   deleteAssignment,
+  toggleAssignmentRealized,
 } from "@/app/actions/projects";
 import {
   addBudgetItem,
@@ -61,6 +65,7 @@ import type {
   MemberDTO,
   PaymentPlanItemDTO,
   ProjectDTO,
+  ProjectTaskDTO,
   RatesDTO,
 } from "@/lib/types";
 import {
@@ -104,7 +109,7 @@ function CurrencySelect({
   );
 }
 
-type Tab = "team" | "budget" | "monthly" | "invoices" | "payments" | "history";
+type Tab = "team" | "budget" | "monthly" | "invoices" | "payments" | "plan" | "history";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "team", label: "Ekip & Efor", icon: Users },
@@ -112,6 +117,7 @@ const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "monthly", label: "Aylık Finans", icon: CalendarDays },
   { id: "invoices", label: "Faturalar", icon: Receipt },
   { id: "payments", label: "Ödeme Planı", icon: Wallet },
+  { id: "plan", label: "Proje Planı", icon: CalendarRange },
   { id: "history", label: "Değişiklik Geçmişi", icon: History },
 ];
 
@@ -123,9 +129,11 @@ export function ProjectDetailClient(props: {
   financials: FinancialDTO[];
   invoices: InvoiceDTO[];
   paymentPlanItems: PaymentPlanItemDTO[];
+  tasks: ProjectTaskDTO[];
   rates: RatesDTO;
   factories: FactoryDTO[];
   members: MemberDTO[];
+  isAdmin: boolean;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<Tab>("team");
@@ -226,6 +234,7 @@ export function ProjectDetailClient(props: {
         {tab === "monthly" && <MonthlyTab {...props} />}
         {tab === "invoices" && <InvoicesTab {...props} />}
         {tab === "payments" && <PaymentPlanTab {...props} />}
+        {tab === "plan" && <ProjectPlanTab project={project} tasks={props.tasks} members={props.members} />}
         {tab === "history" && <HistoryTab logs={props.logs} />}
       </div>
 
@@ -260,13 +269,19 @@ function TeamTab({
   project,
   assignments,
   members,
+  isAdmin,
 }: {
   project: ProjectDTO;
   assignments: AssignmentDTO[];
   members: MemberDTO[];
+  isAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [year, setYear] = useState(() => {
+    const years = assignments.map((a) => a.year);
+    return years.length ? Math.max(...years) : new Date().getFullYear();
+  });
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -285,69 +300,145 @@ function TeamTab({
     setOpen(false);
   }
 
+  // Kişi × Ay matrisi: satırlar ekip üyesi, sütunlar ay — bir bakışta efor dağılımı.
+  const yearAssignments = useMemo(
+    () => assignments.filter((a) => a.year === year),
+    [assignments, year]
+  );
+  const memberRows = useMemo(() => {
+    const byMember = new Map<string, { memberId: string; memberName: string; months: Map<number, AssignmentDTO> }>();
+    for (const a of yearAssignments) {
+      if (!byMember.has(a.memberId)) {
+        byMember.set(a.memberId, { memberId: a.memberId, memberName: a.memberName, months: new Map() });
+      }
+      byMember.get(a.memberId)!.months.set(a.month, a);
+    }
+    return [...byMember.values()].sort((x, y) => x.memberName.localeCompare(y.memberName, "tr"));
+  }, [yearAssignments]);
+  const monthTotals = useMemo(() => {
+    const totals = new Array(12).fill(0);
+    for (const a of yearAssignments) totals[a.month - 1] += a.plannedDays;
+    return totals;
+  }, [yearAssignments]);
+
+  async function onDeleteCell(a: AssignmentDTO) {
+    if (!window.confirm(`${a.memberName} — ${MONTHS_TR[a.month - 1]} ${a.year} atamasını silmek istediğinize emin misiniz?`))
+      return;
+    await deleteAssignment(a.id, project.id);
+  }
+
+  async function onToggleRealized(a: AssignmentDTO) {
+    await toggleAssignmentRealized(a.id, project.id);
+  }
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Ekip Atamaları ve Aylık Efor</CardTitle>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> Atama Ekle
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)}>
+            ← {year - 1}
+          </Button>
+          <span className="px-1 text-sm font-semibold">{year}</span>
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y + 1)}>
+            {year + 1} →
+          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" /> Atama Ekle
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Her hücre, o kişinin o aydaki planlanan adam-gün eforunu gösterir. Planlanan rakama
+          tıklayarak eforu <span className="font-medium text-foreground">gerçekleşti</span> olarak
+          işaretleyebilirsiniz (tekrar tıklarsanız geri alınır).
+          {isAdmin && " Efor ekleme/silme yalnızca admin tarafından yapılabilir."}
+        </p>
         <Table>
           <THead>
             <TR>
               <TH>Ekip Üyesi</TH>
-              <TH>Dönem</TH>
-              <TH className="text-right">Plan (adam-gün)</TH>
-              <TH className="text-right">Gerçekleşen</TH>
-              <TH>Fark</TH>
-              <TH>Kaynaklar</TH>
-              <TH></TH>
+              {MONTHS_TR.map((m) => (
+                <TH key={m} className="text-right">
+                  {m}
+                </TH>
+              ))}
+              <TH className="text-right">Toplam</TH>
             </TR>
           </THead>
           <TBody>
-            {assignments.map((a) => {
-              const diff = a.actualDays - a.plannedDays;
+            {memberRows.map((row) => {
+              const rowTotal = [...row.months.values()].reduce((s, a) => s + a.plannedDays, 0);
               return (
-                <TR key={a.id}>
-                  <TD className="font-medium">{a.memberName}</TD>
-                  <TD className="text-muted-foreground">
-                    {MONTHS_TR[a.month - 1]} {a.year}
-                  </TD>
-                  <TD className="text-right">{a.plannedDays}</TD>
-                  <TD className="text-right">{a.actualDays}</TD>
-                  <TD>
-                    {a.actualDays === 0 ? (
-                      <Badge tone="muted">Bekliyor</Badge>
-                    ) : (
-                      <Badge tone={diff > 0 ? "destructive" : "success"}>
-                        {diff > 0 ? `+${diff}` : diff}
-                      </Badge>
-                    )}
-                  </TD>
-                  <TD className="text-muted-foreground">{a.resources ?? "—"}</TD>
-                  <TD>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Sil"
-                      onClick={() => deleteAssignment(a.id, project.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TD>
+                <TR key={row.memberId}>
+                  <TD className="font-medium">{row.memberName}</TD>
+                  {MONTHS_TR.map((_, i) => {
+                    const a = row.months.get(i + 1);
+                    if (!a) return <TD key={i} className="text-right text-muted-foreground">—</TD>;
+                    const diff = a.actualDays - a.plannedDays;
+                    const realized = a.plannedDays > 0 && a.actualDays === a.plannedDays;
+                    return (
+                      <TD key={i} className="group/cell text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <div>
+                            <button
+                              onClick={() => onToggleRealized(a)}
+                              title={realized ? "Gerçekleşti — geri almak için tıklayın" : "Gerçekleşti olarak işaretle"}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded px-1 font-medium transition-colors hover:bg-accent",
+                                realized ? "text-success" : "text-foreground"
+                              )}
+                            >
+                              {realized && <Check className="h-3 w-3" />}
+                              {a.plannedDays}
+                            </button>
+                            {a.actualDays > 0 && a.actualDays !== a.plannedDays && (
+                              <div className={cn("text-[10px]", diff > 0 ? "text-destructive" : "text-success")}>
+                                gerç: {a.actualDays}
+                              </div>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => onDeleteCell(a)}
+                              aria-label="Sil"
+                              className="hidden text-muted-foreground hover:text-destructive group-hover/cell:inline-flex"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      </TD>
+                    );
+                  })}
+                  <TD className="text-right font-semibold">{rowTotal}</TD>
                 </TR>
               );
             })}
-            {assignments.length === 0 && (
+            {memberRows.length === 0 && (
               <TR>
-                <TD colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Henüz atama yok.
+                <TD colSpan={14} className="py-8 text-center text-muted-foreground">
+                  {year} yılı için henüz atama yok.
                 </TD>
               </TR>
             )}
           </TBody>
+          {memberRows.length > 0 && (
+            <tfoot>
+              <TR className="font-semibold">
+                <TD>Toplam</TD>
+                {monthTotals.map((t, i) => (
+                  <TD key={i} className="text-right">
+                    {t || "—"}
+                  </TD>
+                ))}
+                <TD className="text-right">{monthTotals.reduce((s, t) => s + t, 0)}</TD>
+              </TR>
+            </tfoot>
+          )}
         </Table>
       </CardContent>
 

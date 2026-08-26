@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 import type {
   AssignmentDTO,
   BudgetItemDTO,
@@ -8,6 +9,7 @@ import type {
   LogDTO,
   PaymentPlanItemDTO,
   ProjectDTO,
+  ProjectTaskDTO,
   RatesDTO,
 } from "@/lib/types";
 import { getRates, toTRY } from "@/lib/rates";
@@ -23,6 +25,9 @@ export default async function ProjectDetailPage({
 }) {
   const { id } = await params;
 
+  const session = await getSession();
+  const isAdmin = session?.role === "ADMIN";
+
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
@@ -37,6 +42,14 @@ export default async function ProjectDetailPage({
       financials: { orderBy: [{ year: "asc" }, { month: "asc" }] },
       invoices: { orderBy: { issueDate: "asc" } },
       paymentPlanItems: { orderBy: { dueDate: "asc" } },
+      tasks: {
+        orderBy: [{ order: "asc" }, { startDate: "asc" }],
+        include: {
+          assignees: {
+            include: { member: true, weekAllocations: true },
+          },
+        },
+      },
     },
   });
   if (!project) notFound();
@@ -156,6 +169,26 @@ export default async function ProjectDetailPage({
     };
   });
 
+  const tasks: ProjectTaskDTO[] = project.tasks.map((t) => ({
+    id: t.id,
+    projectId: t.projectId,
+    parentId: t.parentId,
+    title: t.title,
+    type: t.type,
+    color: t.color,
+    startDate: t.startDate.toISOString().slice(0, 10),
+    endDate: t.endDate.toISOString().slice(0, 10),
+    order: t.order,
+    assignees: t.assignees.map((a) => ({
+      id: a.id,
+      memberId: a.memberId,
+      memberName: a.member.name,
+      weekAllocations: Object.fromEntries(
+        a.weekAllocations.map((w) => [`${w.year}-${w.week}`, Number(w.days)])
+      ),
+    })),
+  }));
+
   const ratesDto: RatesDTO = {
     TRY: rates.TRY,
     USD: rates.USD,
@@ -175,7 +208,9 @@ export default async function ProjectDetailPage({
       financials={financials}
       invoices={invoices}
       paymentPlanItems={paymentPlanItems}
+      tasks={tasks}
       rates={ratesDto}
+      isAdmin={isAdmin}
       factories={factories.map((f) => ({ id: f.id, name: f.name, location: f.location }))}
       members={members.map((m) => ({ id: m.id, name: m.name, title: m.title }))}
     />

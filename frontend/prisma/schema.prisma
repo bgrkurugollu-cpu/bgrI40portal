@@ -35,6 +35,7 @@ model TeamMember {
   title       String?
   active      Boolean      @default(true)
   assignments Assignment[]
+  taskAssignees TaskAssignee[]
 }
 
 // ── Modül 1: Proje ve Kaynak Yönetimi ──────────────────
@@ -84,6 +85,7 @@ model Project {
   financials      MonthlyFinancial[]
   invoices        Invoice[]
   paymentPlanItems PaymentPlanItem[]
+  tasks           ProjectTask[]
 }
 
 // Tarihsel değişiklik logu
@@ -305,4 +307,61 @@ model License {
   renewalDate      DateTime?
   status           LicenseStatus @default(ACTIVE)
   createdAt        DateTime      @default(now())
+}
+
+// ── Modül 5: Proje Planı (Gantt) ───────────────────────
+// Görev/milestone kırılımı, kişi ataması ve haftalık gün dağılımı.
+// Haftalık gün girişleri Assignment (Kaynak Planı) tablosuna otomatik yansıtılır.
+
+enum TaskType {
+  TASK
+  MILESTONE
+}
+
+model ProjectTask {
+  id        String        @id @default(cuid())
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    ProjectTask?  @relation("TaskChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  ProjectTask[] @relation("TaskChildren")
+  title     String
+  type      TaskType      @default(TASK)
+  color     String        @default("#3b82f6")
+  startDate DateTime
+  endDate   DateTime
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  assignees TaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentId])
+}
+
+// Bir görevin bir ekip üyesine ataması
+model TaskAssignee {
+  id       String     @id @default(cuid())
+  taskId   String
+  task     ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  memberId String
+  member   TeamMember  @relation(fields: [memberId], references: [id])
+
+  weekAllocations TaskWeekAllocation[]
+
+  @@unique([taskId, memberId])
+}
+
+// Bir atamanın haftalık gün dağılımı — ilgili ay Assignment.plannedDays'e toplanır
+model TaskWeekAllocation {
+  id             String       @id @default(cuid())
+  taskAssigneeId String
+  taskAssignee   TaskAssignee @relation(fields: [taskAssigneeId], references: [id], onDelete: Cascade)
+  year           Int
+  week           Int // ISO hafta no (1-53)
+  days           Decimal      @default(0) @db.Decimal(4, 2)
+
+  @@unique([taskAssigneeId, year, week])
+  @@index([year, week])
 }
