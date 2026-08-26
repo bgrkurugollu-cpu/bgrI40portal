@@ -80,6 +80,7 @@ export function DashboardClient({
     status: string;
     ebaNumber: string | null;
     poNumber: string | null;
+    source?: "PT";
   }[];
 }) {
   const finData = monthly.map((m) => ({
@@ -320,11 +321,12 @@ export function DashboardClient({
                       </TD>
                       <TD>
                         <Link
-                          href={`/projects/${inv.projectId}`}
+                          href={inv.source === "PT" ? `/pt/${inv.projectId}` : `/projects/${inv.projectId}`}
                           className="text-primary hover:underline"
                         >
                           {inv.projectName}
                         </Link>
+                        {inv.source === "PT" && <Badge tone="info" className="ml-1">PT</Badge>}
                         <div className="text-xs text-muted-foreground">{inv.description}</div>
                       </TD>
                       <TD>{inv.ebaNumber || "—"}</TD>
