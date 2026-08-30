@@ -49,3 +49,14 @@ git add . && git commit -m "Değişiklik açıklaması" && git push
 - Bu nedenle agent, `git add .` kullanmadan önce **`.gitignore` kurallarının yerinde olduğundan emin olmalı**; yeni bir veri dosyası türü ortaya çıkarsa önce `.gitignore`'a eklemeli, sonra commit etmelidir.
 - Commit sonrası şüphe varsa `git show --stat HEAD` ile hangi dosyaların gittiği doğrulanmalıdır.
 - Boş şablonlar gerektiğinde `frontend/prisma/generate-templates.ts` ile yeniden üretilir (veri içermez).
+
+### 4.2 VERCEL PRODUCTION DEPLOYMENT — kod ve veritabanı şeması otomatik senkron
+- Uygulamanın Vercel'de canlı bir kopyası var: proje `i40-portal` (takım `bgr`/`bgr14`), domain `i40-portal.vercel.app` (custom domain kullanılmıyor, kasıtlı). Bu proje GitHub'daki `main` branch'ine bağlı — 4. maddedeki `git push` otomatik olarak Vercel'de yeni bir production deployment tetikler, ekstra bir işlem gerekmez.
+- Veritabanı: Vercel'deki `scoringv2` projesiyle **aynı paylaşılan Neon Postgres instance'ı** kullanılıyor, ama tamamen izole bir şemada — `bgrbrain` şeması. `scoringv2`'nin `public` şemasına **kesinlikle dokunulmaz** (tablo eklenmez, değiştirilmez, silinmez).
+- **Şema senkron kuralı:** `frontend/prisma/schema.prisma` dosyasında bir değişiklik (yeni model, yeni alan vb.) yapılıp GitHub'a push edildiğinde, agent aynı iş kapsamında — ek onay beklemeden — bu şemayı production'daki `bgrbrain` şemasına da uygulamalıdır:
+  ```bash
+  docker exec -e DATABASE_URL="$(grep DATABASE_URL /Users/bugrakurugollu/bgrI40portal/.env.vercel-production | cut -d= -f2-)" bgr-brain-app npx prisma db push
+  ```
+  (Local `bgr-brain-app` container'ı üzerinden çalıştırılır çünkü host makinede node/npx yok. Container ayakta değilse `docker compose up -d` ile kaldırılır.)
+- Bu komutun kullandığı `DATABASE_URL`, repoya **asla girmeyen**, `.gitignore`'da olan `.env.vercel-production` dosyasından okunur (GitHub reposu **public** olduğu için bu secret hiçbir committed dosyaya yazılmaz — ne CLAUDE.md'ye ne başka bir dosyaya). Bu dosya yoksa veya değer geçersizse, agent DURUP kullanıcıdan Vercel dashboard'undaki (`i40-portal` → Settings → Environment Variables → `DATABASE_URL`) güncel değeri ister.
+- Veri (satırlar) migration'ı bu kuralın kapsamında DEĞİL — sadece şema (tablo/kolon yapısı) senkron tutulur. Gerçek veri taşıma/senkronizasyonu ayrı, bilinçli bir işlemdir ve kullanıcı özellikle istemeden yapılmaz.
