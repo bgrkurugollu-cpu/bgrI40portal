@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requirePageView, getEffectivePermission } from "@/lib/permission-guard";
-import type { CapexBudgetDTO } from "@/lib/types";
+import { getRates } from "@/lib/rates";
+import type { CapexBudgetDTO, RatesDTO } from "@/lib/types";
 import type { CurrencyCode } from "@/lib/utils";
 import { CapexClient } from "./capex-client";
 
@@ -11,7 +12,7 @@ export default async function CapexPage() {
   const isAdmin =
     session.role === "ADMIN" || (await getEffectivePermission(session.sub, "capex")).canEdit;
 
-  const [budgets, factories] = await Promise.all([
+  const [budgets, factories, projects, rates] = await Promise.all([
     prisma.capexBudget.findMany({
       orderBy: { year: "desc" },
       include: {
@@ -19,12 +20,20 @@ export default async function CapexPage() {
           orderBy: { order: "asc" },
           include: {
             factories: { select: { id: true, name: true } },
-            subItems: { orderBy: { order: "asc" } },
+            subItems: {
+              orderBy: { order: "asc" },
+              include: { project: { select: { id: true, projectCode: true, name: true } } },
+            },
           },
         },
       },
     }),
     prisma.factory.findMany({ orderBy: { name: "asc" } }),
+    prisma.project.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, projectCode: true, name: true },
+    }),
+    getRates(),
   ]);
 
   const dtos: CapexBudgetDTO[] = budgets.map((b) => ({
@@ -46,6 +55,9 @@ export default async function CapexPage() {
       subItems: m.subItems.map((s) => ({
         id: s.id,
         mainItemId: s.mainItemId,
+        projectId: s.projectId,
+        projectCode: s.project?.projectCode ?? null,
+        projectName: s.project?.name ?? null,
         title: s.title,
         budget: Number(s.budget),
         note: s.note,
@@ -54,10 +66,22 @@ export default async function CapexPage() {
     })),
   }));
 
+  const ratesDto: RatesDTO = {
+    TRY: rates.TRY,
+    USD: rates.USD,
+    EUR: rates.EUR,
+    GBP: rates.GBP,
+    date: rates.date,
+    time: rates.time,
+    source: rates.source,
+  };
+
   return (
     <CapexClient
       budgets={dtos}
       factories={factories.map((f) => ({ id: f.id, name: f.name, location: f.location }))}
+      projects={projects}
+      rates={ratesDto}
       isAdmin={isAdmin}
     />
   );

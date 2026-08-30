@@ -214,6 +214,9 @@ export type ProjectTaskDTO = {
 export type CapexSubItemDTO = {
   id: string;
   mainItemId: string;
+  projectId: string | null;
+  projectCode: string | null;
+  projectName: string | null;
   title: string;
   budget: number;
   note: string | null;

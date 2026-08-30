@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useMemo, useState, type FormEvent } from "react";
 import {
   BarChart,
@@ -22,6 +23,7 @@ import {
   TrendingDown,
   AlertTriangle,
   Loader2,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +33,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Combobox } from "@/components/ui/combobox";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { RatesBanner } from "@/app/finance/finance-client";
 import {
   upsertCapexBudget,
   addMainItem,
@@ -41,8 +45,16 @@ import {
   updateSubItem,
   deleteSubItem,
 } from "@/app/actions/capex";
-import type { CapexBudgetDTO, CapexMainItemDTO, CapexSubItemDTO, FactoryDTO } from "@/lib/types";
+import type {
+  CapexBudgetDTO,
+  CapexMainItemDTO,
+  CapexSubItemDTO,
+  FactoryDTO,
+  RatesDTO,
+} from "@/lib/types";
 import { CURRENCIES, CURRENCY_LABELS, CurrencyCode, formatMoney } from "@/lib/utils";
+
+type ProjectOption = { id: string; projectCode: string; name: string };
 
 function usedOf(m: CapexMainItemDTO) {
   return m.subItems.length > 0 ? m.subItems.reduce((s, si) => s + si.budget, 0) : m.spent;
@@ -51,10 +63,14 @@ function usedOf(m: CapexMainItemDTO) {
 export function CapexClient({
   budgets,
   factories,
+  projects,
+  rates,
   isAdmin,
 }: {
   budgets: CapexBudgetDTO[];
   factories: FactoryDTO[];
+  projects: ProjectOption[];
+  rates: RatesDTO;
   isAdmin: boolean;
 }) {
   const years = useMemo(() => budgets.map((b) => b.year).sort((a, b) => b - a), [budgets]);
@@ -146,6 +162,8 @@ export function CapexClient({
           )}
         </div>
       </div>
+
+      <RatesBanner rates={rates} />
 
       {!budget ? (
         <Card>
@@ -288,7 +306,19 @@ export function CapexClient({
                           expanded.has(m.id) &&
                           m.subItems.map((s) => (
                             <TR key={s.id}>
-                              <TD className="pl-9 text-sm text-muted-foreground">↳ {s.title}</TD>
+                              <TD className="pl-9 text-sm text-muted-foreground">
+                                ↳ {s.title}
+                                {s.projectId && (
+                                  <Link
+                                    href={`/projects/${s.projectId}`}
+                                    className="ml-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    title="Bağlı projeye git"
+                                  >
+                                    <Link2 className="h-3 w-3" />
+                                    {s.projectCode}
+                                  </Link>
+                                )}
+                              </TD>
                               <TD></TD>
                               <TD className="text-right text-sm">{formatMoney(s.budget, budget.currency, 0)}</TD>
                               <TD></TD>
@@ -419,6 +449,9 @@ export function CapexClient({
         }}
         mainItem={subDialogFor}
         item={editingSub}
+        projects={projects}
+        rates={rates}
+        currency={budget?.currency ?? "TRY"}
       />
     </div>
   );
@@ -623,13 +656,71 @@ function SubItemDialog({
   onClose,
   mainItem,
   item,
+  projects,
+  rates,
+  currency,
 }: {
   open: boolean;
   onClose: () => void;
   mainItem: CapexMainItemDTO | null;
   item: CapexSubItemDTO | null;
+  projects: ProjectOption[];
+  rates: RatesDTO;
+  currency: CurrencyCode;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={item ? "Alt Kalemi Düzenle" : `Alt Kalem Ekle — ${mainItem?.title ?? ""}`}
+    >
+      <SubItemForm
+        key={item?.id ?? "new"}
+        mainItem={mainItem}
+        item={item}
+        projects={projects}
+        rates={rates}
+        currency={currency}
+        onClose={onClose}
+      />
+    </Dialog>
+  );
+}
+
+function SubItemForm({
+  mainItem,
+  item,
+  projects,
+  rates,
+  currency,
+  onClose,
+}: {
+  mainItem: CapexMainItemDTO | null;
+  item: CapexSubItemDTO | null;
+  projects: ProjectOption[];
+  rates: RatesDTO;
+  currency: CurrencyCode;
+  onClose: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(item?.projectId ?? null);
+  const [title, setTitle] = useState(item?.title ?? "");
+  const [budget, setBudget] = useState(item?.budget ?? 0);
+
+  const projectOptions = useMemo(
+    () => projects.map((p) => ({ value: p.id, label: p.name, sublabel: p.projectCode })),
+    [projects]
+  );
+
+  function onProjectChange(value: string | null) {
+    setProjectId(value);
+    if (value) {
+      const p = projects.find((pr) => pr.id === value);
+      if (p && (!title || title === item?.title)) setTitle(p.name);
+    }
+  }
+
+  const tlPreview = projectId ? budget * (rates[currency] ?? 1) : null;
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -637,6 +728,7 @@ function SubItemDialog({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const input = {
+      projectId,
       title: String(fd.get("title")),
       budget: Number(fd.get("budget")),
       note: (fd.get("note") as string) || null,
@@ -654,35 +746,55 @@ function SubItemDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={item ? "Alt Kalemi Düzenle" : `Alt Kalem Ekle — ${mainItem?.title ?? ""}`}
-    >
-      <form key={item?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <Label>Başlık</Label>
-            <Input name="title" defaultValue={item?.title} required />
-          </div>
-          <div className="col-span-2">
-            <Label>Bütçe</Label>
-            <Input name="budget" type="number" step="0.01" min={0} defaultValue={item?.budget ?? 0} required />
-          </div>
-          <div className="col-span-2">
-            <Label>Not</Label>
-            <Input name="note" defaultValue={item?.note ?? ""} placeholder="Opsiyonel" />
-          </div>
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Label>Mevcut Proje (opsiyonel)</Label>
+          <Combobox
+            options={projectOptions}
+            value={projectId}
+            onChange={onProjectChange}
+            placeholder="Proje ara ve seç…"
+          />
         </div>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Vazgeç
-          </Button>
-          <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />} Kaydet
-          </Button>
+        <div className="col-span-2">
+          <Label>Başlık</Label>
+          <Input name="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
         </div>
-      </form>
-    </Dialog>
+        <div className="col-span-2">
+          <Label>Bütçe ({CURRENCY_LABELS[currency]})</Label>
+          <Input
+            name="budget"
+            type="number"
+            step="0.01"
+            min={0}
+            value={budget}
+            onChange={(e) => setBudget(Number(e.target.value) || 0)}
+            required
+          />
+          {projectId && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Proje bağlı — kaydedince güncel TCMB kuruyla{" "}
+              <span className="font-medium text-foreground">
+                {formatMoney(tlPreview ?? 0, "TRY", 0)}
+              </span>{" "}
+              olarak projenin Hedef Bütçesi&apos;ne yazılacak.
+            </p>
+          )}
+        </div>
+        <div className="col-span-2">
+          <Label>Not</Label>
+          <Input name="note" defaultValue={item?.note ?? ""} placeholder="Opsiyonel" />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Vazgeç
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />} Kaydet
+        </Button>
+      </div>
+    </form>
   );
 }

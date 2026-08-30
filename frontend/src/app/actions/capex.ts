@@ -3,10 +3,47 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePageEdit } from "@/lib/permission-guard";
+import { getRates, toTRY } from "@/lib/rates";
 import type { Currency } from "@prisma/client";
 
 function requireAdmin() {
   return requirePageEdit("capex");
+}
+
+// Bir alt kalem bir Proje'ye bağlıysa, alt kalemin bütçesini (CAPEX bütçesinin
+// para biriminde) güncel TCMB kuruyla TL'ye çevirip projenin targetBudget
+// alanına yazar ve bunu ProjectLog'a "targetBudget" alanı olarak işler —
+// böylece proje sayfasındaki tarihsel değişiklik logunda da görünür.
+async function syncProjectTargetBudgetFromCapex(
+  projectId: string,
+  amountInBudgetCurrency: number,
+  currency: Currency,
+  actingUserId: string
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { targetBudget: true },
+  });
+  if (!project) return;
+
+  const rates = await getRates();
+  const converted = toTRY(amountInBudgetCurrency, currency, rates);
+  const oldValue = Number(project.targetBudget);
+  const newValue = Math.round(converted * 100) / 100;
+  if (oldValue === newValue) return;
+
+  await prisma.project.update({ where: { id: projectId }, data: { targetBudget: newValue } });
+  await prisma.projectLog.create({
+    data: {
+      projectId,
+      userId: actingUserId,
+      field: "targetBudget",
+      oldValue: String(oldValue),
+      newValue: String(newValue),
+    },
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
 }
 
 // ── Yıllık Bütçe Kabı ────────────────────────────────────
@@ -90,22 +127,48 @@ export async function deleteMainItem(id: string) {
 
 export async function addSubItem(input: {
   mainItemId: string;
+  projectId?: string | null;
   title: string;
   budget: number;
   note?: string | null;
   order?: number;
 }) {
-  await requireAdmin();
-  await prisma.capexSubItem.create({ data: input });
+  const session = await requireAdmin();
+  const { projectId, ...rest } = input;
+  const subItem = await prisma.capexSubItem.create({
+    data: { ...rest, projectId: projectId || null },
+    include: { mainItem: { include: { capexBudget: true } } },
+  });
+  if (projectId) {
+    await syncProjectTargetBudgetFromCapex(
+      projectId,
+      input.budget,
+      subItem.mainItem.capexBudget.currency,
+      session.sub
+    );
+  }
   revalidatePath("/capex");
 }
 
 export async function updateSubItem(
   id: string,
-  input: { title: string; budget: number; note?: string | null }
+  input: { projectId?: string | null; title: string; budget: number; note?: string | null }
 ) {
-  await requireAdmin();
-  await prisma.capexSubItem.update({ where: { id }, data: input });
+  const session = await requireAdmin();
+  const { projectId, ...rest } = input;
+  const subItem = await prisma.capexSubItem.update({
+    where: { id },
+    data: { ...rest, projectId: projectId || null },
+    include: { mainItem: { include: { capexBudget: true } } },
+  });
+  if (projectId) {
+    await syncProjectTargetBudgetFromCapex(
+      projectId,
+      input.budget,
+      subItem.mainItem.capexBudget.currency,
+      session.sub
+    );
+  }
   revalidatePath("/capex");
 }
 

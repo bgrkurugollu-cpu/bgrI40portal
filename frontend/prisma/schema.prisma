@@ -102,6 +102,7 @@ model Project {
   invoices        Invoice[]
   paymentPlanItems PaymentPlanItem[]
   tasks           ProjectTask[]
+  capexSubItems   CapexSubItem[]
 }
 
 // Tarihsel değişiklik logu
@@ -419,10 +420,16 @@ model CapexSubItem {
   id         String        @id @default(cuid())
   mainItemId String
   mainItem   CapexMainItem @relation(fields: [mainItemId], references: [id], onDelete: Cascade)
+  // Mevcut bir Proje kaydına bağlanabilir (opsiyonel); bağlıysa bu alt kalemin
+  // bütçesi (CAPEX bütçesinin para biriminde) güncel TCMB kuruyla TL'ye çevrilip
+  // projenin targetBudget alanına otomatik yansıtılır.
+  projectId  String?
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   title      String
   budget     Decimal       @default(0) @db.Decimal(14, 2)
   note       String?
   order      Int           @default(0)
 
   @@index([mainItemId])
+  @@index([projectId])
 }
