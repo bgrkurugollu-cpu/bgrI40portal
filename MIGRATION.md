@@ -94,4 +94,4 @@ sudo launchctl bootout system /Library/LaunchDaemons/com.cloudflare.cloudflared.
 ## Notlar
 
 - `cloudflared` (launchd `LaunchDaemon`) root olarak, kullanıcı girişi olmadan boot'ta otomatik başlar — bu kısım için auto-login gerekmez. Auto-login gerekliliği sadece **Docker Desktop**'tan kaynaklanıyor (kullanıcı oturumu bekleyen bir uygulama). Eğer auto-login güvenlik açısından istenmiyorsa, alternatif: Docker Desktop yerine **Colima** veya **OrbStack** gibi arka planda (login-independent) çalışabilen bir Docker runtime'a geçmek — bu, ayrı bir değerlendirme gerektirir.
-- DB şifresi (`bgrsecret`) taşıma sırasında da değişmiyor — [[cloudflare-tunnel-setup]] memory notunda belirtildiği gibi bu ayrı bir opsiyonel iyileştirme.
+- DB şifresi artık `.env`'deki `POSTGRES_PASSWORD`'den okunuyor (bkz. `.env.example`) — taşıma sırasında bu dosyayı da (adım 3'teki gibi) elle taşıyın, repoda değildir.

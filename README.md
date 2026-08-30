@@ -24,9 +24,9 @@ docker compose up --build
 İlk açılışta bağımlılıklar kurulur, şema veritabanına uygulanır ve örnek veri yüklenir.
 
 - Uygulama: http://localhost:3000
-- PostgreSQL: localhost:5433 (bgr / bgrsecret / bgrbrain)
+- PostgreSQL: localhost:5433 (kullanıcı `bgr`, DB `bgrbrain`, şifre `.env`'deki `POSTGRES_PASSWORD`)
 
-**Giriş:** `admin@bgr.local` / `admin123`
+**Giriş:** İlk seed'de `admin@bgr.local` için rastgele bir şifre üretilir ve terminale bir kez yazdırılır (`docker compose logs app` ile görülebilir). İlk girişten sonra Hesap sayfasından değiştirin.
 
 ## Yapı
 

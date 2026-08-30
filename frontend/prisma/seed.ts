@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as XLSX from "xlsx";
@@ -59,7 +60,12 @@ async function main() {
   }
 
   // Admin kullanıcı (Excel şablonu yok; giriş için gerekli).
-  const passwordHash = await bcrypt.hash("admin123", 10);
+  // Şifre, tekrarlanabilir local kurulum isteniyorsa SEED_ADMIN_PASSWORD ile
+  // sabitlenebilir; aksi halde her seed'de rastgele üretilip bir kere yazdırılır
+  // (repoya hardcoded bir varsayılan şifre commit edilmemesi için).
+  const adminPassword =
+    process.env.SEED_ADMIN_PASSWORD ?? crypto.randomBytes(9).toString("base64url");
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
   await prisma.user.create({
     data: {
       email: "admin@bgr.local",
@@ -68,7 +74,9 @@ async function main() {
       role: "ADMIN",
     },
   });
-  console.log("Admin kullanıcı oluşturuldu: admin@bgr.local / admin123");
+  console.log(
+    `Admin kullanıcı oluşturuldu: admin@bgr.local / ${adminPassword}  (ilk girişten sonra Hesap sayfasından değiştirin)`
+  );
 
   if (!fs.existsSync(SEED_DATA_DIR)) {
     console.warn(
@@ -110,7 +118,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\nSeed tamamlandı. Giriş: admin@bgr.local / admin123");
+  console.log("\nSeed tamamlandı.");
 }
 
 main()
