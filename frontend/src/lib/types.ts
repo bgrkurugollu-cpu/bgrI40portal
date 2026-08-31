@@ -17,6 +17,7 @@ export type FactoryDTO = { id: string; name: string; location: string | null };
 
 export type ProjectDTO = {
   id: string;
+  kind: "PROJECT" | "LEAD" | "CR";
   projectCode: string;
   pipelineCode: string | null;
   name: string;

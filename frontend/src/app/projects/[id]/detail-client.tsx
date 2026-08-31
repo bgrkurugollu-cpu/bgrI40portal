@@ -153,12 +153,15 @@ export function ProjectDetailClient(props: {
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link
-            href="/projects"
+            href={project.kind === "PROJECT" ? "/projects" : "/lead-cr"}
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" /> Projeler
+            <ArrowLeft className="h-4 w-4" /> {project.kind === "PROJECT" ? "Projeler" : "Lead / CR"}
           </Link>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            {project.kind !== "PROJECT" && (
+              <Badge tone={project.kind === "CR" ? "warning" : "info"}>{project.kind}</Badge>
+            )}
             <span className="font-mono text-xl text-muted-foreground bg-muted px-2 py-0.5 rounded">
               {project.projectCode}
             </span>
@@ -188,18 +191,22 @@ export function ProjectDetailClient(props: {
             <Badge tone={project.status === "ACTIVE" ? "success" : "info"}>
               {STATUS_LABELS[project.status]}
             </Badge>
-            <Badge
-              tone={
-                project.riskLevel === "LOW"
-                  ? "success"
-                  : project.riskLevel === "MEDIUM"
-                    ? "warning"
-                    : "destructive"
-              }
-            >
-              Risk: {RISK_LABELS[project.riskLevel]}
-            </Badge>
-            <Badge tone="info">Öncelik: {RISK_LABELS[project.priority]}</Badge>
+            {project.kind === "PROJECT" && (
+              <>
+                <Badge
+                  tone={
+                    project.riskLevel === "LOW"
+                      ? "success"
+                      : project.riskLevel === "MEDIUM"
+                        ? "warning"
+                        : "destructive"
+                  }
+                >
+                  Risk: {RISK_LABELS[project.riskLevel]}
+                </Badge>
+                <Badge tone="info">Öncelik: {RISK_LABELS[project.priority]}</Badge>
+              </>
+            )}
             <Badge tone="muted">Gerçekleşme: %{project.probability}</Badge>
           </div>
         </div>

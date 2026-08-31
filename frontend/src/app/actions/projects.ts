@@ -4,9 +4,15 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { requirePageEdit } from "@/lib/permission-guard";
-import type { Priority, ProjectStatus, RiskLevel } from "@prisma/client";
+import type { Priority, ProjectKind, ProjectStatus, RiskLevel } from "@prisma/client";
+
+// "Proje" ve "Lead/CR" aynı modeli paylaşır ama ayrı menü/izinlere sahiptir.
+function pageForKind(kind: ProjectKind): "projects" | "leadcr" {
+  return kind === "PROJECT" ? "projects" : "leadcr";
+}
 
 type ProjectInput = {
+  kind: ProjectKind;
   projectCode: string;
   pipelineCode: string | null;
   name: string;
@@ -23,7 +29,7 @@ type ProjectInput = {
 };
 
 export async function createProject(input: ProjectInput) {
-  const session = await requirePageEdit("projects");
+  const session = await requirePageEdit(pageForKind(input.kind));
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
@@ -47,21 +53,25 @@ export async function createProject(input: ProjectInput) {
     },
   });
   revalidatePath("/projects");
+  revalidatePath("/lead-cr");
   revalidatePath("/");
   return { id: project.id };
 }
 
 export async function updateProject(id: string, input: ProjectInput) {
-  const session = await requirePageEdit("projects");
-  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
-
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  const validUserId = user ? user.id : null;
-
   const existing = await prisma.project.findUniqueOrThrow({
     where: { id },
     include: { factories: true },
   });
+
+  const session = await requirePageEdit(pageForKind(existing.kind));
+  // Tür değiştiriliyorsa (örn. Proje → Lead), hedef menü için de izin gerekir.
+  if (input.kind !== existing.kind) await requirePageEdit(pageForKind(input.kind));
+
+  if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
+
+  const user = await prisma.user.findUnique({ where: { id: session.sub } });
+  const validUserId = user ? user.id : null;
 
   const { factoryIds, ...scalarInput } = input;
   const next = {
@@ -72,6 +82,7 @@ export async function updateProject(id: string, input: ProjectInput) {
 
   // Tarihsel log: değişen her skalar alan için kayıt (fabrika ayrı ele alınır)
   const fields: (keyof typeof next)[] = [
+    "kind",
     "projectCode",
     "pipelineCode",
     "name",
@@ -130,15 +141,18 @@ export async function updateProject(id: string, input: ProjectInput) {
 
   revalidatePath(`/projects/${id}`);
   revalidatePath("/projects");
+  revalidatePath("/lead-cr");
   revalidatePath("/");
 }
 
 export async function deleteProject(id: string) {
-  await requirePageEdit("projects");
+  const existing = await prisma.project.findUniqueOrThrow({ where: { id }, select: { kind: true } });
+  await requirePageEdit(pageForKind(existing.kind));
   // Tüm ilişkili kayıtlar (atama, bütçe, finans, fatura, log) şemada
   // onDelete: Cascade olduğundan otomatik silinir.
   await prisma.project.delete({ where: { id } });
   revalidatePath("/projects");
+  revalidatePath("/lead-cr");
   revalidatePath("/");
   revalidatePath("/resources");
   revalidatePath("/finance");

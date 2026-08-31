@@ -15,6 +15,7 @@ import {
   Factory,
   FileStack,
   Banknote,
+  Flag,
   ShieldCheck,
   ChevronsUpDown,
   X,
@@ -28,6 +29,7 @@ import { useTheme } from "@/context/ThemeContext";
 const nav = [
   { href: "/", label: "Genel Bakış", icon: LayoutDashboard, page: "dashboard" },
   { href: "/projects", label: "Projeler", icon: FolderKanban, page: "projects" },
+  { href: "/lead-cr", label: "Lead / CR", icon: Flag, page: "leadcr" },
   { href: "/pt", label: "PT Kodları", icon: FileStack, page: "pt" },
   { href: "/resources", label: "Kaynak Planı", icon: Users, page: "resources" },
   { href: "/finance", label: "Bütçe & Finans", icon: Wallet, page: "finance" },

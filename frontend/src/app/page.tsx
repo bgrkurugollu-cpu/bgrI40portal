@@ -13,7 +13,7 @@ export default async function DashboardPage() {
   const [rates, projects, financials, assignments, licenses, invoices, memberCount, ptFinancials, ptInvoices] =
     await Promise.all([
       getRates(),
-      prisma.project.findMany({ include: { factories: true } }),
+      prisma.project.findMany({ where: { kind: "PROJECT" }, include: { factories: true } }),
       prisma.monthlyFinancial.findMany({ where: { year }, include: { project: true } }),
       prisma.assignment.findMany({ where: { year } }),
       prisma.license.findMany(),

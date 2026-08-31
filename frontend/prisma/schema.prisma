@@ -78,8 +78,18 @@ enum ProjectStatus {
   CANCELLED
 }
 
+// Proje / demand kapsamı dışındaki işler (Lead, CR) ile normal projeleri ayırt eder.
+// Aynı Project modelini ve tüm alt yapısını (plan, ödeme, efor, bütçe) paylaşırlar,
+// yalnızca ayrı bir menüde listelenir ve risk/öncelik alanları kullanılmaz.
+enum ProjectKind {
+  PROJECT
+  LEAD
+  CR
+}
+
 model Project {
   id           String        @id @default(cuid())
+  kind         ProjectKind   @default(PROJECT)
   projectCode  String        @unique
   pipelineCode String? // Pipeline Kodu (PTM)
   name         String

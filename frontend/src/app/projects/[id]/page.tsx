@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requirePageView, getEffectivePermission } from "@/lib/permission-guard";
+import { getSession } from "@/lib/auth";
+import { getEffectivePermission } from "@/lib/permission-guard";
 import type {
   AssignmentDTO,
   BudgetItemDTO,
@@ -25,10 +26,8 @@ export default async function ProjectDetailPage({
 }) {
   const { id } = await params;
 
-  const session = await requirePageView("projects");
-  const isAdmin =
-    session.role === "ADMIN" || (await getEffectivePermission(session.sub, "resources")).canEdit;
-  const isSuperAdmin = session.role === "ADMIN";
+  const session = await getSession();
+  if (!session) redirect("/login");
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -56,6 +55,15 @@ export default async function ProjectDetailPage({
   });
   if (!project) notFound();
 
+  const pageKey = project.kind === "PROJECT" ? "projects" : "leadcr";
+  if (session.role !== "ADMIN") {
+    const viewPerm = await getEffectivePermission(session.sub, pageKey);
+    if (!viewPerm.canView) redirect("/account");
+  }
+  const isAdmin =
+    session.role === "ADMIN" || (await getEffectivePermission(session.sub, "resources")).canEdit;
+  const isSuperAdmin = session.role === "ADMIN";
+
   const [factories, members, rates] = await Promise.all([
     prisma.factory.findMany({ orderBy: { name: "asc" } }),
     prisma.teamMember.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -64,6 +72,7 @@ export default async function ProjectDetailPage({
 
   const dto: ProjectDTO = {
     id: project.id,
+    kind: project.kind,
     projectCode: project.projectCode,
     pipelineCode: project.pipelineCode,
     name: project.name,

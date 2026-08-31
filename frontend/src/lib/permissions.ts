@@ -4,6 +4,7 @@
 export const APP_PAGES = [
   { key: "dashboard", label: "Genel Bakış", href: "/", hasEdit: false, defaultEdit: false },
   { key: "projects", label: "Projeler", href: "/projects", hasEdit: true, defaultEdit: true },
+  { key: "leadcr", label: "Lead / CR", href: "/lead-cr", hasEdit: true, defaultEdit: true },
   { key: "pt", label: "PT Kodları", href: "/pt", hasEdit: true, defaultEdit: true },
   { key: "resources", label: "Kaynak Planı", href: "/resources", hasEdit: true, defaultEdit: false },
   { key: "finance", label: "Bütçe & Finans", href: "/finance", hasEdit: false, defaultEdit: false },

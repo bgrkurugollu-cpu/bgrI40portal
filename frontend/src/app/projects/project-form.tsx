@@ -11,18 +11,27 @@ import { createProject, updateProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
 import { RISK_LABELS, STATUS_LABELS } from "@/lib/utils";
 
+const KIND_LABELS: Record<ProjectDTO["kind"], string> = {
+  PROJECT: "Proje",
+  LEAD: "Lead",
+  CR: "CR",
+};
+
 export function ProjectForm({
   factories,
   project,
+  defaultKind = "PROJECT",
   onDone,
 }: {
   factories: FactoryDTO[];
   project?: ProjectDTO;
+  defaultKind?: ProjectDTO["kind"];
   onDone: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [factoryIds, setFactoryIds] = useState<string[]>(project?.factoryIds ?? []);
   const [factoryError, setFactoryError] = useState(false);
+  const [kind, setKind] = useState<ProjectDTO["kind"]>(project?.kind ?? defaultKind);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,6 +43,7 @@ export function ProjectForm({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const input = {
+      kind,
       projectCode: String(fd.get("projectCode")),
       pipelineCode: (fd.get("pipelineCode") as string) || null,
       name: String(fd.get("name")),
@@ -42,8 +52,8 @@ export function ProjectForm({
       targetBudget: Number(fd.get("targetBudget")),
       startDate: (fd.get("startDate") as string) || null,
       endDate: (fd.get("endDate") as string) || null,
-      riskLevel: fd.get("riskLevel") as ProjectDTO["riskLevel"],
-      priority: fd.get("priority") as ProjectDTO["priority"],
+      riskLevel: (fd.get("riskLevel") as ProjectDTO["riskLevel"]) || "MEDIUM",
+      priority: (fd.get("priority") as ProjectDTO["priority"]) || "MEDIUM",
       status: fd.get("status") as ProjectDTO["status"],
       description: (fd.get("description") as string) || null,
       jiraLink: (fd.get("jiraLink") as string) || null,
@@ -65,6 +75,20 @@ export function ProjectForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="kind">Tür</Label>
+          <Select
+            id="kind"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ProjectDTO["kind"])}
+          >
+            {Object.entries(KIND_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div>
           <Label htmlFor="projectCode">Proje Kodu</Label>
           <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="Serbest kod (örn. PRJ-101, Demand, D-12)" required />
@@ -149,26 +173,30 @@ export function ProjectForm({
             defaultValue={project?.endDate ?? ""}
           />
         </div>
-        <div>
-          <Label htmlFor="riskLevel">Risk Derecesi</Label>
-          <Select id="riskLevel" name="riskLevel" defaultValue={project?.riskLevel ?? "MEDIUM"}>
-            {Object.entries(RISK_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="priority">Öncelik</Label>
-          <Select id="priority" name="priority" defaultValue={project?.priority ?? "MEDIUM"}>
-            {Object.entries(RISK_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {kind === "PROJECT" && (
+          <>
+            <div>
+              <Label htmlFor="riskLevel">Risk Derecesi</Label>
+              <Select id="riskLevel" name="riskLevel" defaultValue={project?.riskLevel ?? "MEDIUM"}>
+                {Object.entries(RISK_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="priority">Öncelik</Label>
+              <Select id="priority" name="priority" defaultValue={project?.priority ?? "MEDIUM"}>
+                {Object.entries(RISK_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </>
+        )}
         <div className="col-span-2">
           <Label htmlFor="jiraLink">JIRA Linki</Label>
           <Input
