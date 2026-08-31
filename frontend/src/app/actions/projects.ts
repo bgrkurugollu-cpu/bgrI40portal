@@ -19,6 +19,7 @@ type ProjectInput = {
   priority: Priority;
   status: ProjectStatus;
   description: string | null;
+  jiraLink: string | null;
 };
 
 export async function createProject(input: ProjectInput) {
@@ -82,6 +83,7 @@ export async function updateProject(id: string, input: ProjectInput) {
     "priority",
     "status",
     "description",
+    "jiraLink",
   ];
   const logs = [];
   for (const f of fields) {

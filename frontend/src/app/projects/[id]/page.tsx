@@ -28,6 +28,7 @@ export default async function ProjectDetailPage({
   const session = await requirePageView("projects");
   const isAdmin =
     session.role === "ADMIN" || (await getEffectivePermission(session.sub, "resources")).canEdit;
+  const isSuperAdmin = session.role === "ADMIN";
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -76,6 +77,7 @@ export default async function ProjectDetailPage({
     priority: project.priority,
     status: project.status,
     description: project.description,
+    jiraLink: project.jiraLink,
   };
 
   const logs: LogDTO[] = project.logs.map((l) => ({
@@ -180,6 +182,8 @@ export default async function ProjectDetailPage({
     startDate: t.startDate.toISOString().slice(0, 10),
     endDate: t.endDate.toISOString().slice(0, 10),
     order: t.order,
+    jiraCode: t.jiraCode,
+    jiraLink: t.jiraLink,
     assignees: t.assignees.map((a) => ({
       id: a.id,
       memberId: a.memberId,
@@ -212,6 +216,7 @@ export default async function ProjectDetailPage({
       tasks={tasks}
       rates={ratesDto}
       isAdmin={isAdmin}
+      isSuperAdmin={isSuperAdmin}
       factories={factories.map((f) => ({ id: f.id, name: f.name, location: f.location }))}
       members={members.map((m) => ({ id: m.id, name: m.name, title: m.title }))}
     />

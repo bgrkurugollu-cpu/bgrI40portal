@@ -3,8 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePageEdit } from "@/lib/permission-guard";
+import { getSession } from "@/lib/auth";
 import type { TaskType } from "@prisma/client";
 import { isoWeekMonday } from "@/lib/isoweek";
+
+// JIRA kodu/linki yalnızca gerçek ADMIN rolüne sahip kullanıcılarca düzenlenebilir
+// (sayfa bazlı "projects" düzenleme izninden bağımsız, daha kısıtlı bir kural).
+async function requireAdmin() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — bu alanı yalnızca admin düzenleyebilir.");
+  return session;
+}
 
 // ── Görev / Milestone CRUD ──────────────────────────────
 
@@ -57,6 +66,19 @@ export async function updateTask(
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
     },
+  });
+  revalidatePath(`/projects/${task.projectId}`);
+}
+
+export async function updateTaskJira(
+  id: string,
+  input: { jiraCode: string | null; jiraLink: string | null }
+) {
+  await requireAdmin();
+
+  const task = await prisma.projectTask.update({
+    where: { id },
+    data: { jiraCode: input.jiraCode || null, jiraLink: input.jiraLink || null },
   });
   revalidatePath(`/projects/${task.projectId}`);
 }

@@ -18,6 +18,7 @@ import {
   Wallet,
   CalendarRange,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +135,7 @@ export function ProjectDetailClient(props: {
   factories: FactoryDTO[];
   members: MemberDTO[];
   isAdmin: boolean;
+  isSuperAdmin: boolean;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<Tab>("team");
@@ -167,6 +169,17 @@ export function ProjectDetailClient(props: {
             )}
             {project.name}
           </h1>
+          {project.jiraLink && (
+            <a
+              href={project.jiraLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              JIRA&apos;da Görüntüle
+            </a>
+          )}
           <p className="mt-1 text-sm text-muted-foreground">
             {project.factoryNames.join(", ")} · {formatDate(project.startDate)} →{" "}
             {formatDate(project.endDate)}
@@ -234,7 +247,14 @@ export function ProjectDetailClient(props: {
         {tab === "monthly" && <MonthlyTab {...props} />}
         {tab === "invoices" && <InvoicesTab {...props} />}
         {tab === "payments" && <PaymentPlanTab {...props} />}
-        {tab === "plan" && <ProjectPlanTab project={project} tasks={props.tasks} members={props.members} />}
+        {tab === "plan" && (
+          <ProjectPlanTab
+            project={project}
+            tasks={props.tasks}
+            members={props.members}
+            isSuperAdmin={props.isSuperAdmin}
+          />
+        )}
         {tab === "history" && <HistoryTab logs={props.logs} />}
       </div>
 
@@ -1673,6 +1693,7 @@ const FIELD_LABELS: Record<string, string> = {
   priority: "Öncelik",
   status: "Durum",
   description: "Açıklama",
+  jiraLink: "JIRA Linki",
   oluşturma: "Oluşturma",
 };
 

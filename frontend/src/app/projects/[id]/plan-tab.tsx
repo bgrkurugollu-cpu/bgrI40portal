@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent, type CSSProperties } from "react";
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Diamond, Users, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronRight,
+  ChevronDown,
+  Diamond,
+  Users,
+  Loader2,
+  ExternalLink,
+  Link2,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,10 +28,12 @@ import {
   deleteTask,
   setTaskAssignees,
   upsertWeekAllocation,
+  updateTaskJira,
 } from "@/app/actions/tasks";
 import type { MemberDTO, ProjectDTO, ProjectTaskDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { weekColumnsForYear, weekRangeInYear, daysBetweenInclusive } from "@/lib/isoweek";
+import { exportProjectPlanToExcel } from "@/lib/gantt-export";
 
 const TASK_COLORS = [
   "#3b82f6",
@@ -34,7 +48,7 @@ const TASK_COLORS = [
 
 const TASK_TYPE_LABELS: Record<string, string> = { TASK: "Görev", MILESTONE: "Milestone" };
 
-const COL_WIDTHS = [260, 90, 96, 96, 70, 180];
+const COL_WIDTHS = [260, 90, 96, 96, 70, 180, 170];
 const COL_OFFSETS = COL_WIDTHS.reduce<number[]>((acc, w, i) => {
   acc.push(i === 0 ? 0 : acc[i - 1] + COL_WIDTHS[i - 1]);
   return acc;
@@ -96,10 +110,12 @@ export function ProjectPlanTab({
   project,
   tasks,
   members,
+  isSuperAdmin,
 }: {
   project: ProjectDTO;
   tasks: ProjectTaskDTO[];
   members: MemberDTO[];
+  isSuperAdmin: boolean;
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(tasks.map((t) => t.id)));
@@ -159,6 +175,19 @@ export function ProjectPlanTab({
           <Button size="sm" onClick={() => openAddTask(null)}>
             <Plus className="h-4 w-4" /> Görev / Milestone Ekle
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              exportProjectPlanToExcel(
+                { projectCode: project.projectCode, name: project.name },
+                tasks,
+                year
+              )
+            }
+          >
+            <Download className="h-4 w-4" /> Excel&apos;e Aktar
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -173,7 +202,7 @@ export function ProjectPlanTab({
                 <th
                   className="sticky left-0 z-20 border-b bg-card"
                   style={{ width: COL_OFFSETS[COL_WIDTHS.length - 1] + COL_WIDTHS[COL_WIDTHS.length - 1] }}
-                  colSpan={6}
+                  colSpan={7}
                 ></th>
                 {groups.map((g, i) => (
                   <th
@@ -202,10 +231,16 @@ export function ProjectPlanTab({
                   Süre
                 </th>
                 <th
-                  className="sticky border-r-2 border-b bg-card px-2 py-2 text-left text-xs font-semibold"
+                  className="sticky border-b bg-card px-2 py-2 text-left text-xs font-semibold"
                   style={stickyStyle(5)}
                 >
                   Atananlar
+                </th>
+                <th
+                  className="sticky border-r-2 border-b bg-card px-2 py-2 text-left text-xs font-semibold"
+                  style={stickyStyle(6)}
+                >
+                  JIRA Kodu
                 </th>
                 {weekCols.map((c) => (
                   <th
@@ -231,11 +266,12 @@ export function ProjectPlanTab({
                   onEdit={() => openEditTask(t)}
                   onDelete={() => onDeleteTask(t)}
                   onManageAssignees={() => setAssigneeTask(t)}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={6 + weekCols.length} className="py-10 text-center text-muted-foreground">
+                  <td colSpan={7 + weekCols.length} className="py-10 text-center text-muted-foreground">
                     Henüz görev/milestone yok. &quot;Görev / Milestone Ekle&quot; ile başlayın.
                   </td>
                 </tr>
@@ -281,6 +317,7 @@ function TaskRows({
   onEdit,
   onDelete,
   onManageAssignees,
+  isSuperAdmin,
 }: {
   task: TaskNode;
   expanded: Set<string>;
@@ -291,6 +328,7 @@ function TaskRows({
   onEdit: () => void;
   onDelete: () => void;
   onManageAssignees: () => void;
+  isSuperAdmin: boolean;
 }) {
   const range = weekRangeInYear(task.startDate, task.endDate, year);
   const duration = daysBetweenInclusive(task.startDate, task.endDate);
@@ -341,7 +379,7 @@ function TaskRows({
         <td className="sticky border-b bg-card px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap" style={stickyStyle(4)}>
           {duration} gün
         </td>
-        <td className="sticky border-r-2 border-b bg-card px-2 py-1.5" style={stickyStyle(5)}>
+        <td className="sticky border-b bg-card px-2 py-1.5" style={stickyStyle(5)}>
           <button
             onClick={onManageAssignees}
             className="flex items-center gap-1 truncate text-xs text-primary hover:underline"
@@ -350,6 +388,9 @@ function TaskRows({
             <Users className="h-3 w-3 shrink-0" />
             {task.assignees.length > 0 ? task.assignees.map((a) => a.memberName).join(", ") : "Ata…"}
           </button>
+        </td>
+        <td className="sticky border-r-2 border-b bg-card px-2 py-1.5" style={stickyStyle(6)}>
+          <JiraCell task={task} isSuperAdmin={isSuperAdmin} />
         </td>
         {weekCols.map((c) => {
           const inRange = range && c.week >= range.startWeek && c.week <= range.endWeek;
@@ -381,7 +422,8 @@ function TaskRows({
             <td className="sticky border-b bg-card" style={stickyStyle(2)}></td>
             <td className="sticky border-b bg-card" style={stickyStyle(3)}></td>
             <td className="sticky border-b bg-card" style={stickyStyle(4)}></td>
-            <td className="sticky border-r-2 border-b bg-card" style={stickyStyle(5)}></td>
+            <td className="sticky border-b bg-card" style={stickyStyle(5)}></td>
+            <td className="sticky border-r-2 border-b bg-card" style={stickyStyle(6)}></td>
             {weekCols.map((c) => {
               const inRange = range && c.week >= range.startWeek && c.week <= range.endWeek;
               const key = `${year}-${c.week}`;
@@ -407,6 +449,98 @@ function TaskRows({
           </tr>
         ))}
     </>
+  );
+}
+
+function JiraCell({ task, isSuperAdmin }: { task: ProjectTaskDTO; isSuperAdmin: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [code, setCode] = useState(task.jiraCode ?? "");
+  const [link, setLink] = useState(task.jiraLink ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setCode(task.jiraCode ?? "");
+    setLink(task.jiraLink ?? "");
+  }, [task.jiraCode, task.jiraLink]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await updateTaskJira(task.id, { jiraCode: code || null, jiraLink: link || null });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1 py-0.5">
+        <Input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Kod (örn. PRJ-42)"
+          className="h-6 text-xs"
+        />
+        <Input
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          placeholder="JIRA linki"
+          className="h-6 text-xs"
+        />
+        <div className="flex items-center gap-1">
+          <Button size="sm" className="h-6 px-2 text-xs" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kaydet"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => {
+              setCode(task.jiraCode ?? "");
+              setLink(task.jiraLink ?? "");
+              setEditing(false);
+            }}
+            disabled={saving}
+          >
+            Vazgeç
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group/jira flex items-center gap-1">
+      {task.jiraCode ? (
+        task.jiraLink ? (
+          <a
+            href={task.jiraLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 truncate text-xs text-primary hover:underline"
+            title="JIRA'da aç"
+          >
+            <Link2 className="h-3 w-3 shrink-0" />
+            {task.jiraCode}
+            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          </a>
+        ) : (
+          <span className="truncate text-xs text-muted-foreground">{task.jiraCode}</span>
+        )
+      ) : (
+        <span className="text-xs text-muted-foreground/40">—</span>
+      )}
+      {isSuperAdmin && (
+        <button
+          onClick={() => setEditing(true)}
+          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover/jira:opacity-100"
+          title="JIRA kodu/linkini düzenle"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   );
 }
 

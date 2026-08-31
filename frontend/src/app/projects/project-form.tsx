@@ -46,6 +46,7 @@ export function ProjectForm({
       priority: fd.get("priority") as ProjectDTO["priority"],
       status: fd.get("status") as ProjectDTO["status"],
       description: (fd.get("description") as string) || null,
+      jiraLink: (fd.get("jiraLink") as string) || null,
     };
     try {
       if (project) {
@@ -167,6 +168,16 @@ export function ProjectForm({
               </option>
             ))}
           </Select>
+        </div>
+        <div className="col-span-2">
+          <Label htmlFor="jiraLink">JIRA Linki</Label>
+          <Input
+            id="jiraLink"
+            name="jiraLink"
+            type="url"
+            defaultValue={project?.jiraLink ?? ""}
+            placeholder="https://şirket.atlassian.net/browse/PRJ-123"
+          />
         </div>
         <div className="col-span-2">
           <Label htmlFor="description">Açıklama</Label>

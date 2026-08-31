@@ -167,6 +167,7 @@ export function ResourcesClient({
                   </TH>
                 ))}
                 <TH className="text-right">Toplam</TH>
+                <TH className="text-right">Doluluk</TH>
               </TR>
             </THead>
             <TBody>
@@ -180,6 +181,7 @@ export function ResourcesClient({
                     member={m}
                     arr={arr}
                     total={total}
+                    totalWorkDays={totalWorkDays}
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(m.id)}
                     cellClass={cellClass}
@@ -203,12 +205,30 @@ export function ResourcesClient({
                     </TD>
                   );
                 })}
-                <TD className="text-right font-bold tabular-nums">
-                  {members.reduce(
+                {(() => {
+                  const teamTotal = members.reduce(
                     (s, m) => s + (load.get(m.id)?.reduce((a, b) => a + b, 0) ?? 0),
                     0
-                  )}
-                </TD>
+                  );
+                  const teamOccupancy = teamCapacityYear > 0 ? teamTotal / teamCapacityYear : 0;
+                  return (
+                    <>
+                      <TD className="text-right font-bold tabular-nums">{teamTotal}</TD>
+                      <TD
+                        className={cn(
+                          "text-right font-bold tabular-nums",
+                          teamOccupancy > 1
+                            ? "text-destructive"
+                            : teamOccupancy > 0.8
+                              ? "text-warning"
+                              : ""
+                        )}
+                      >
+                        %{Math.round(teamOccupancy * 100)}
+                      </TD>
+                    </>
+                  );
+                })()}
               </TR>
               <TR className="border-t-2">
                 <TD className="text-xs font-medium text-muted-foreground">
@@ -224,6 +244,9 @@ export function ResourcesClient({
                 ))}
                 <TD className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
                   {totalWorkDays}
+                </TD>
+                <TD className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
+                  /kişi
                 </TD>
               </TR>
             </TBody>
@@ -243,6 +266,7 @@ const MemberRows = memo(function MemberRows({
   member,
   arr,
   total,
+  totalWorkDays,
   isOpen,
   onToggle,
   cellClass,
@@ -254,6 +278,7 @@ const MemberRows = memo(function MemberRows({
   member: MemberDTO;
   arr: number[];
   total: number;
+  totalWorkDays: number;
   isOpen: boolean;
   onToggle: () => void;
   cellClass: (v: number, monthIndex: number) => string;
@@ -262,6 +287,8 @@ const MemberRows = memo(function MemberRows({
   year: number;
   isAdmin: boolean;
 }) {
+  const occupancy = totalWorkDays > 0 ? total / totalWorkDays : 0;
+  const remaining = totalWorkDays - total;
   return (
     <>
       <TR
@@ -295,10 +322,23 @@ const MemberRows = memo(function MemberRows({
           </TD>
         ))}
         <TD className="text-right font-semibold tabular-nums">{total}</TD>
+        <TD
+          className={cn(
+            "text-right font-semibold tabular-nums",
+            occupancy > 1 ? "text-destructive" : occupancy > 0.8 ? "text-warning" : ""
+          )}
+          title={
+            remaining >= 0
+              ? `Yıl sonuna kadar ${remaining} adam-gün boşluğu var`
+              : `Kapasitenin ${Math.abs(remaining)} adam-gün üzerinde planlanmış`
+          }
+        >
+          %{Math.round(occupancy * 100)}
+        </TD>
       </TR>
       {isOpen && (
         <TR>
-          <TD colSpan={14} className="bg-muted/20 p-0">
+          <TD colSpan={15} className="bg-muted/20 p-0">
             <MemberProjectsPanel
               member={member}
               projectsMap={projectsMap}

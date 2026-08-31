@@ -30,6 +30,7 @@ export type ProjectDTO = {
   priority: string;
   status: string;
   description: string | null;
+  jiraLink: string | null;
 };
 
 export type MemberDTO = { id: string; name: string; title: string | null };
@@ -206,6 +207,8 @@ export type ProjectTaskDTO = {
   startDate: string;
   endDate: string;
   order: number;
+  jiraCode: string | null;
+  jiraLink: string | null;
   assignees: TaskAssigneeDTO[];
 };
 

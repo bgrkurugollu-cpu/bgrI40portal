@@ -30,6 +30,7 @@ export default async function ProjectsPage() {
     priority: p.priority,
     status: p.status,
     description: p.description,
+    jiraLink: p.jiraLink,
   }));
 
   return (
