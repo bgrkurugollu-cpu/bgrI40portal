@@ -102,7 +102,7 @@ export function exportProjectPlanToExcel(
       if (!inRange) {
         taskRow.push("");
       } else if (isMilestone) {
-        taskRow.push(c.week === range!.startWeek ? "◆" : "");
+        taskRow.push("◇");
       } else {
         taskRow.push("■");
       }

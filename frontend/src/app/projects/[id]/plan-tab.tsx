@@ -186,7 +186,7 @@ export function ProjectPlanTab({
               )
             }
           >
-            <Download className="h-4 w-4" /> Excel&apos;e Aktar
+            <Download className="h-4 w-4" /> Excel&apos;e Dışa Aktar
           </Button>
         </div>
       </CardHeader>
@@ -355,9 +355,11 @@ function TaskRows({
               {task.title}
             </span>
             <div className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
-              <button onClick={onAddSubtask} title="Alt görev ekle" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+              {isMilestone && (
+                <button onClick={onAddSubtask} title="Bu milestone'a görev ekle" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button onClick={onEdit} title="Düzenle" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -398,11 +400,11 @@ function TaskRows({
             <td key={c.week} className="border-b border-l p-0" style={{ width: WEEK_COL_WIDTH, minWidth: WEEK_COL_WIDTH }}>
               {inRange &&
                 (isMilestone ? (
-                  c.week === range!.startWeek && (
-                    <div className="flex h-6 items-center justify-center">
-                      <div className="h-3 w-3 rotate-45" style={{ backgroundColor: task.color }} />
-                    </div>
-                  )
+                  <div
+                    className="mx-0.5 h-5 rounded-sm border-2 border-dashed border-foreground/50"
+                    style={{ backgroundColor: `${task.color}55` }}
+                    title={`${task.title} (Milestone: ${task.startDate} → ${task.endDate})`}
+                  />
                 ) : (
                   <div className="mx-0.5 h-5 rounded-sm" style={{ backgroundColor: task.color }} />
                 ))}
@@ -594,9 +596,14 @@ function TaskForm({
   task: ProjectTaskDTO | null;
   onDone: () => void;
 }) {
+  // Hiyerarşi kuralı: Milestone = üst düzey ana görev, Task = bir milestone'un
+  // altındaki alt görev. Yeni kayıt oluştururken tip buna göre sabitlenir;
+  // mevcut bir kaydı düzenlerken (geriye dönük veri için) serbest bırakılır.
+  const lockedType = !task ? (parentId ? "TASK" : "MILESTONE") : null;
+
   const [loading, setLoading] = useState(false);
   const [color, setColor] = useState(task?.color ?? TASK_COLORS[0]);
-  const [type, setType] = useState(task?.type ?? "TASK");
+  const [type, setType] = useState(task?.type ?? lockedType ?? "TASK");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -628,7 +635,13 @@ function TaskForm({
     <form onSubmit={onSubmit} className="space-y-4">
       {!task && parentId && (
         <p className="rounded-lg bg-accent/50 px-3 py-2 text-xs text-muted-foreground">
-          Bu bir alt görev olarak eklenecek.
+          Bu, seçili milestone&apos;un altına bir <strong>Görev</strong> olarak eklenecek.
+        </p>
+      )}
+      {!task && !parentId && (
+        <p className="rounded-lg bg-accent/50 px-3 py-2 text-xs text-muted-foreground">
+          Üst düzeyde eklenen kayıtlar <strong>Milestone</strong>&apos;dır — alt görevlerini
+          milestone satırındaki + ikonuyla ekleyebilirsiniz.
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">
@@ -638,14 +651,20 @@ function TaskForm({
         </div>
         <div>
           <Label htmlFor="type">Tip</Label>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value as any)}>
-            {Object.entries(TASK_TYPE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
+          {lockedType ? (
+            <Select id="type" disabled value={lockedType} onChange={() => {}}>
+              <option value={lockedType}>{TASK_TYPE_LABELS[lockedType]}</option>
+            </Select>
+          ) : (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value as any)}>
+              {Object.entries(TASK_TYPE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          )}
         </div>
         <div>
           <Label>Renk</Label>
