@@ -46,7 +46,7 @@ const TASK_COLORS = [
   "#84cc16",
 ];
 
-const TASK_TYPE_LABELS: Record<string, string> = { TASK: "Görev", MILESTONE: "Milestone" };
+const TASK_TYPE_LABELS: Record<string, string> = { TASK: "Alt Görev", MILESTONE: "Ana Görev" };
 
 const COL_WIDTHS = [260, 90, 96, 96, 70, 180, 170];
 const COL_OFFSETS = COL_WIDTHS.reduce<number[]>((acc, w, i) => {
@@ -173,7 +173,7 @@ export function ProjectPlanTab({
             {year + 1} →
           </Button>
           <Button size="sm" onClick={() => openAddTask(null)}>
-            <Plus className="h-4 w-4" /> Görev / Milestone Ekle
+            <Plus className="h-4 w-4" /> Ana Görev Ekle
           </Button>
           <Button
             variant="outline"
@@ -272,7 +272,7 @@ export function ProjectPlanTab({
               {visible.length === 0 && (
                 <tr>
                   <td colSpan={7 + weekCols.length} className="py-10 text-center text-muted-foreground">
-                    Henüz görev/milestone yok. &quot;Görev / Milestone Ekle&quot; ile başlayın.
+                    Henüz ana görev yok. &quot;Ana Görev Ekle&quot; ile başlayın.
                   </td>
                 </tr>
               )}
@@ -284,7 +284,13 @@ export function ProjectPlanTab({
       <Dialog
         open={taskDialogOpen}
         onClose={() => setTaskDialogOpen(false)}
-        title={editingTask ? "Görevi Düzenle" : "Yeni Görev / Milestone"}
+        title={
+          editingTask
+            ? `${TASK_TYPE_LABELS[editingTask.type]} Düzenle`
+            : newTaskParentId
+              ? "Yeni Alt Görev"
+              : "Yeni Ana Görev"
+        }
       >
         <TaskForm
           projectId={project.id}
@@ -356,7 +362,7 @@ function TaskRows({
             </span>
             <div className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
               {isMilestone && (
-                <button onClick={onAddSubtask} title="Bu milestone'a görev ekle" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button onClick={onAddSubtask} title="Bu ana göreve alt görev ekle" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -403,7 +409,7 @@ function TaskRows({
                   <div
                     className="mx-0.5 h-5 rounded-sm border-2 border-dashed border-foreground/50"
                     style={{ backgroundColor: `${task.color}55` }}
-                    title={`${task.title} (Milestone: ${task.startDate} → ${task.endDate})`}
+                    title={`${task.title} (Ana Görev: ${task.startDate} → ${task.endDate})`}
                   />
                 ) : (
                   <div className="mx-0.5 h-5 rounded-sm" style={{ backgroundColor: task.color }} />
@@ -596,9 +602,10 @@ function TaskForm({
   task: ProjectTaskDTO | null;
   onDone: () => void;
 }) {
-  // Hiyerarşi kuralı: Milestone = üst düzey ana görev, Task = bir milestone'un
-  // altındaki alt görev. Yeni kayıt oluştururken tip buna göre sabitlenir;
-  // mevcut bir kaydı düzenlerken (geriye dönük veri için) serbest bırakılır.
+  // Hiyerarşi kuralı: Ana Görev (DB: MILESTONE) üst düzeydedir, Alt Görev
+  // (DB: TASK) bir ana görevin altındadır. Yeni kayıt oluştururken tip buna
+  // göre sabitlenir; mevcut bir kaydı düzenlerken (geriye dönük veri için)
+  // serbest bırakılır.
   const lockedType = !task ? (parentId ? "TASK" : "MILESTONE") : null;
 
   const [loading, setLoading] = useState(false);
@@ -635,13 +642,13 @@ function TaskForm({
     <form onSubmit={onSubmit} className="space-y-4">
       {!task && parentId && (
         <p className="rounded-lg bg-accent/50 px-3 py-2 text-xs text-muted-foreground">
-          Bu, seçili milestone&apos;un altına bir <strong>Görev</strong> olarak eklenecek.
+          Bu, seçili ana görevin altına bir <strong>Alt Görev</strong> olarak eklenecek.
         </p>
       )}
       {!task && !parentId && (
         <p className="rounded-lg bg-accent/50 px-3 py-2 text-xs text-muted-foreground">
-          Üst düzeyde eklenen kayıtlar <strong>Milestone</strong>&apos;dır — alt görevlerini
-          milestone satırındaki + ikonuyla ekleyebilirsiniz.
+          Üst düzeyde eklenen kayıtlar <strong>Ana Görev</strong>&apos;dir — alt görevlerini
+          satırdaki + ikonuyla ekleyebilirsiniz.
         </p>
       )}
       <div className="grid grid-cols-2 gap-4">

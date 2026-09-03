@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import type { ProjectTaskDTO } from "@/lib/types";
 import { weekColumnsForYear, weekRangeInYear, daysBetweenInclusive } from "@/lib/isoweek";
 
-const TASK_TYPE_LABELS: Record<string, string> = { TASK: "Görev", MILESTONE: "Milestone" };
+const TASK_TYPE_LABELS: Record<string, string> = { TASK: "Alt Görev", MILESTONE: "Ana Görev" };
 const FIXED_HEADERS = ["Başlık", "Tip", "Başlangıç", "Bitiş", "Süre (gün)", "Atananlar", "JIRA Kodu"];
 
 type Node = ProjectTaskDTO & { children: Node[]; depth: number };

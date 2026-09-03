@@ -32,6 +32,7 @@ export type ProjectDTO = {
   status: string;
   description: string | null;
   jiraLink: string | null;
+  paymentPlanNote: string | null;
 };
 
 export type MemberDTO = { id: string; name: string; title: string | null };
@@ -93,6 +94,7 @@ export type InvoiceDTO = {
   projectId: string;
   projectCode?: string;
   projectName?: string;
+  type?: "EXPENSE" | "INCOME";
   description: string;
   amount: number;
   currency: CurrencyCode;

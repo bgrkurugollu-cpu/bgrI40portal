@@ -103,6 +103,7 @@ model Project {
   status       ProjectStatus @default(PLANNED)
   description  String?
   jiraLink     String? // JIRA proje/epic linki — proje detay sayfasında başlığın altında gösterilir
+  paymentPlanNote String? // Ödeme Planı — serbest metin açıklama (ayrı bir modül/tablo yerine proje bilgisi olarak tutulur)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -208,11 +209,18 @@ enum InvoiceStatus {
   ISSUED
 }
 
+// Fatura gider mi gelir mi — aylık finans (Gider/Gelir) buna göre otomatik hesaplanır.
+enum InvoiceType {
+  EXPENSE
+  INCOME
+}
+
 // Faturalama takvimi
 model Invoice {
   id          String        @id @default(cuid())
   projectId   String
   project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type        InvoiceType   @default(INCOME)
   description String
   amount      Decimal       @default(0) @db.Decimal(14, 2)
   currency    Currency      @default(TRY)

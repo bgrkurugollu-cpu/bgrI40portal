@@ -30,6 +30,7 @@ export default async function FinancePage() {
       select: {
         id: true,
         projectId: true,
+        type: true,
         description: true,
         amount: true,
         currency: true,
@@ -103,6 +104,7 @@ export default async function FinancePage() {
       projectId: i.projectId,
       projectCode: i.project.projectCode,
       projectName: i.project.name,
+      type: i.type,
       description: i.description,
       amount: Number(i.amount),
       currency,

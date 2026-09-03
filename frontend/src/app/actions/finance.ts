@@ -3,35 +3,58 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePageEdit } from "@/lib/permission-guard";
-import type { BudgetExpenseType, Currency, InvoiceStatus, PaymentStatus } from "@prisma/client";
+import { getSession } from "@/lib/auth";
+import { getRates, toTRY } from "@/lib/rates";
+import type { BudgetExpenseType, Currency, InvoiceStatus, InvoiceType } from "@prisma/client";
 
-// Gelir en az giderin %5 fazlası olmalıdır (taban değer); üzeri manuel girilebilir.
-const INCOME_MARKUP = 1.05;
+// Bütçe kırılımı yalnızca gerçek ADMIN rolüne sahip kullanıcılarca düzenlenebilir
+// (sayfa bazlı "projects" düzenleme izninden bağımsız, daha kısıtlı bir kural).
+async function requireAdmin() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("Yetkisiz — bu alanı yalnızca admin düzenleyebilir.");
+  return session;
+}
 
-export async function upsertMonthlyFinancial(input: {
+// Bir proje + yıl + ay için Gider/Gelir alanlarını, o aya ait tüm faturaların
+// (tipine göre) TL karşılığı toplamından yeniden hesaplar. İç Kaynak Geliri
+// faturalardan bağımsızdır ve elle girilmeye devam eder.
+async function recomputeMonthlyFinancialFromInvoices(projectId: string, year: number, month: number) {
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+  const invoices = await prisma.invoice.findMany({
+    where: { projectId, issueDate: { gte: monthStart, lt: monthEnd } },
+  });
+  const rates = await getRates();
+  let income = 0;
+  let expense = 0;
+  for (const inv of invoices) {
+    const tl = toTRY(Number(inv.amount), inv.currency as Currency, rates);
+    if (inv.type === "INCOME") income += tl;
+    else expense += tl;
+  }
+  income = Math.round(income * 100) / 100;
+  expense = Math.round(expense * 100) / 100;
+
+  await prisma.monthlyFinancial.upsert({
+    where: { projectId_year_month: { projectId, year, month } },
+    create: { projectId, year, month, income, expense, internalIncome: 0, currency: "TRY" },
+    update: { income, expense, currency: "TRY" },
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
+// İç Kaynak Geliri, faturalardan bağımsız elle girilen tek alandır — Gider/Gelir
+// artık faturalardan otomatik hesaplandığı için bu alana dokunulmaz.
+export async function upsertInternalIncome(input: {
   projectId: string;
   year: number;
   month: number;
-  expense: number;
-  income?: number;
   internalIncome: number;
   currency: Currency;
 }) {
   await requirePageEdit("projects");
-
-  // Gelir en az gider*%5 olmalı; kullanıcı bunun üzerinde bir değer girmişse o kullanılır.
-  const minIncome = Math.round(input.expense * INCOME_MARKUP * 100) / 100;
-  const income = Math.max(input.income ?? minIncome, minIncome);
-
-  const data = {
-    projectId: input.projectId,
-    year: input.year,
-    month: input.month,
-    expense: input.expense,
-    income,
-    internalIncome: input.internalIncome,
-    currency: input.currency,
-  };
 
   await prisma.monthlyFinancial.upsert({
     where: {
@@ -41,13 +64,16 @@ export async function upsertMonthlyFinancial(input: {
         month: input.month,
       },
     },
-    create: data,
-    update: {
-      expense: data.expense,
-      income: data.income,
-      internalIncome: data.internalIncome,
-      currency: data.currency,
+    create: {
+      projectId: input.projectId,
+      year: input.year,
+      month: input.month,
+      income: 0,
+      expense: 0,
+      internalIncome: input.internalIncome,
+      currency: input.currency,
     },
+    update: { internalIncome: input.internalIncome },
   });
   revalidatePath(`/projects/${input.projectId}`);
   revalidatePath("/finance");
@@ -68,7 +94,7 @@ export async function addBudgetItem(input: {
   note?: string;
   transferFeePercent?: number;
 }) {
-  await requirePageEdit("projects");
+  await requireAdmin();
 
   // Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
   const amount = input.quantity * input.unitPrice;
@@ -81,7 +107,7 @@ export async function addBudgetItem(input: {
 }
 
 export async function deleteBudgetItem(id: string, projectId: string) {
-  await requirePageEdit("projects");
+  await requireAdmin();
   await prisma.budgetItem.delete({ where: { id } });
   revalidatePath(`/projects/${projectId}`);
 }
@@ -105,7 +131,7 @@ export async function importBudgetItemsForProject(
   projectId: string,
   items: ImportedBudgetItem[]
 ) {
-  await requirePageEdit("projects");
+  await requireAdmin();
 
   await prisma.budgetItem.createMany({
     data: items.map((it) => ({
@@ -129,8 +155,13 @@ export async function importBudgetItemsForProject(
   return { inserted: items.length };
 }
 
+async function monthOf(date: Date) {
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
+}
+
 export async function addInvoice(input: {
   projectId: string;
+  type: InvoiceType;
   description: string;
   amount: number;
   currency: Currency;
@@ -143,9 +174,11 @@ export async function addInvoice(input: {
 }) {
   await requirePageEdit("projects");
 
-  await prisma.invoice.create({
+  const inv = await prisma.invoice.create({
     data: { ...input, issueDate: new Date(input.issueDate) },
   });
+  const { year, month } = await monthOf(inv.issueDate);
+  await recomputeMonthlyFinancialFromInvoices(inv.projectId, year, month);
   revalidatePath(`/projects/${input.projectId}`);
   revalidatePath("/finance");
 }
@@ -153,6 +186,7 @@ export async function addInvoice(input: {
 export async function updateInvoice(
   id: string,
   input: {
+    type: InvoiceType;
     description: string;
     amount: number;
     currency: Currency;
@@ -166,10 +200,17 @@ export async function updateInvoice(
 ) {
   await requirePageEdit("projects");
 
+  const before = await prisma.invoice.findUniqueOrThrow({ where: { id } });
   const inv = await prisma.invoice.update({
     where: { id },
     data: { ...input, issueDate: new Date(input.issueDate) },
   });
+  const oldMonth = await monthOf(before.issueDate);
+  const newMonth = await monthOf(inv.issueDate);
+  await recomputeMonthlyFinancialFromInvoices(inv.projectId, oldMonth.year, oldMonth.month);
+  if (oldMonth.year !== newMonth.year || oldMonth.month !== newMonth.month) {
+    await recomputeMonthlyFinancialFromInvoices(inv.projectId, newMonth.year, newMonth.month);
+  }
   revalidatePath(`/projects/${inv.projectId}`);
   revalidatePath("/finance");
 }
@@ -184,61 +225,8 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
 export async function deleteInvoice(id: string) {
   await requirePageEdit("projects");
   const inv = await prisma.invoice.delete({ where: { id } });
+  const { year, month } = await monthOf(inv.issueDate);
+  await recomputeMonthlyFinancialFromInvoices(inv.projectId, year, month);
   revalidatePath(`/projects/${inv.projectId}`);
-  revalidatePath("/finance");
-}
-
-// ── Ödeme Planı ──────────────────────────────────────────
-
-export async function addPaymentPlanItem(input: {
-  projectId: string;
-  description: string;
-  amount: number;
-  currency: Currency;
-  dueDate: string;
-  status: PaymentStatus;
-  note?: string;
-}) {
-  await requirePageEdit("projects");
-
-  await prisma.paymentPlanItem.create({
-    data: { ...input, dueDate: new Date(input.dueDate) },
-  });
-  revalidatePath(`/projects/${input.projectId}`);
-  revalidatePath("/finance");
-}
-
-export async function updatePaymentPlanItem(
-  id: string,
-  input: {
-    description: string;
-    amount: number;
-    currency: Currency;
-    dueDate: string;
-    status: PaymentStatus;
-    note?: string;
-  }
-) {
-  await requirePageEdit("projects");
-
-  const item = await prisma.paymentPlanItem.update({
-    where: { id },
-    data: { ...input, dueDate: new Date(input.dueDate) },
-  });
-  revalidatePath(`/projects/${item.projectId}`);
-  revalidatePath("/finance");
-}
-
-export async function updatePaymentPlanStatus(id: string, status: PaymentStatus) {
-  await requirePageEdit("projects");
-  const item = await prisma.paymentPlanItem.update({ where: { id }, data: { status } });
-  revalidatePath(`/projects/${item.projectId}`);
-  revalidatePath("/finance");
-}
-
-export async function deletePaymentPlanItem(id: string) {
-  await requirePageEdit("projects");
-  const item = await prisma.paymentPlanItem.delete({ where: { id } });
-  revalidatePath(`/projects/${item.projectId}`);
   revalidatePath("/finance");
 }

@@ -15,7 +15,6 @@ import {
   Loader2,
   Upload,
   Download,
-  Wallet,
   CalendarRange,
   Check,
   ExternalLink,
@@ -39,15 +38,11 @@ import {
   addBudgetItem,
   deleteBudgetItem,
   importBudgetItemsForProject,
-  upsertMonthlyFinancial,
+  upsertInternalIncome,
   addInvoice,
   updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
-  addPaymentPlanItem,
-  updatePaymentPlanItem,
-  updatePaymentPlanStatus,
-  deletePaymentPlanItem,
 } from "@/app/actions/finance";
 import {
   parseBudgetExcelFile,
@@ -64,7 +59,6 @@ import type {
   InvoiceDTO,
   LogDTO,
   MemberDTO,
-  PaymentPlanItemDTO,
   ProjectDTO,
   ProjectTaskDTO,
   RatesDTO,
@@ -77,11 +71,11 @@ import {
   formatDate,
   formatMoney,
   getInvoiceDerivedStatus,
-  getPaymentPlanDerivedStatus,
   INCOME_MARKUP,
   INVOICE_STATUS_LABELS,
-  PAYMENT_STATUS_LABELS,
+  INVOICE_TYPE_LABELS,
   MONTHS_TR,
+  MONTHS_TR_SHORT,
   RISK_LABELS,
   STATUS_LABELS,
 } from "@/lib/utils";
@@ -110,14 +104,13 @@ function CurrencySelect({
   );
 }
 
-type Tab = "team" | "budget" | "monthly" | "invoices" | "payments" | "plan" | "history";
+type Tab = "team" | "budget" | "monthly" | "invoices" | "plan" | "history";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "team", label: "Ekip & Efor", icon: Users },
   { id: "budget", label: "Bütçe Kırılımı", icon: ListTree },
   { id: "monthly", label: "Aylık Finans", icon: CalendarDays },
   { id: "invoices", label: "Faturalar", icon: Receipt },
-  { id: "payments", label: "Ödeme Planı", icon: Wallet },
   { id: "plan", label: "Proje Planı", icon: CalendarRange },
   { id: "history", label: "Değişiklik Geçmişi", icon: History },
 ];
@@ -129,7 +122,6 @@ export function ProjectDetailClient(props: {
   budgetItems: BudgetItemDTO[];
   financials: FinancialDTO[];
   invoices: InvoiceDTO[];
-  paymentPlanItems: PaymentPlanItemDTO[];
   tasks: ProjectTaskDTO[];
   rates: RatesDTO;
   factories: FactoryDTO[];
@@ -147,6 +139,20 @@ export function ProjectDetailClient(props: {
   const budgetTotal = props.budgetItems.reduce((s, b) => s + b.amountTRY, 0);
   // Proje cirosu: projenin tüm yıllarındaki aylık gelir + iç kaynak geliri toplamı.
   const ciro = props.financials.reduce((s, f) => s + f.incomeTRY + f.internalIncomeTRY, 0);
+  // Karlılık: (İç Kaynak Geliri + gider × %5) / Toplam Gelir — PT'deki "gider + %5 gelir
+  // kuralı" ile aynı mantık, projenin gerçek gelirine oranlanır.
+  const financeTotals = props.financials.reduce(
+    (acc, f) => ({
+      income: acc.income + f.incomeTRY,
+      expense: acc.expense + f.expenseTRY,
+      internal: acc.internal + f.internalIncomeTRY,
+    }),
+    { income: 0, expense: 0, internal: 0 }
+  );
+  const profitability =
+    financeTotals.income > 0
+      ? (financeTotals.internal + financeTotals.expense * (INCOME_MARKUP - 1)) / financeTotals.income
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -209,16 +215,29 @@ export function ProjectDetailClient(props: {
             )}
             <Badge tone="muted">Gerçekleşme: %{project.probability}</Badge>
           </div>
+          {project.paymentPlanNote && (
+            <div className="mt-3 max-w-2xl rounded-lg border bg-accent/30 px-3 py-2 text-sm">
+              <span className="font-medium text-foreground">Ödeme Planı: </span>
+              <span className="text-muted-foreground whitespace-pre-line">
+                {project.paymentPlanNote}
+              </span>
+            </div>
+          )}
         </div>
         <Button variant="outline" onClick={() => setEditing(true)}>
           <Pencil className="h-4 w-4" /> Düzenle
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
         <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
         <StatCard label="Proje Cirosu" value={formatMoney(ciro)} />
         <StatCard label="Bütçe Kırılımı (TL karşılığı)" value={formatMoney(budgetTotal)} />
+        <StatCard
+          label="Karlılık"
+          value={`%${Math.round(profitability * 100)}`}
+          sub="(İç Kaynak + Gider×%5) / Gelir"
+        />
         <StatCard label="Planlanan Efor" value={`${plannedTotal.toFixed(0)} adam-gün`} />
         <StatCard
           label="Gerçekleşen Efor"
@@ -253,7 +272,6 @@ export function ProjectDetailClient(props: {
         {tab === "budget" && <BudgetTab {...props} />}
         {tab === "monthly" && <MonthlyTab {...props} />}
         {tab === "invoices" && <InvoicesTab {...props} />}
-        {tab === "payments" && <PaymentPlanTab {...props} />}
         {tab === "plan" && (
           <ProjectPlanTab
             project={project}
@@ -528,9 +546,11 @@ function TeamTab({
 function BudgetTab({
   project,
   budgetItems,
+  isSuperAdmin,
 }: {
   project: ProjectDTO;
   budgetItems: BudgetItemDTO[];
+  isSuperAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -624,15 +644,24 @@ function BudgetTab({
           >
             <Download className="h-4 w-4" /> Dışa Aktar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4" /> İçe Aktar
-          </Button>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> Kalem Ekle
-          </Button>
+          {isSuperAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" /> İçe Aktar
+              </Button>
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" /> Kalem Ekle
+              </Button>
+            </>
+          )}
         </div>
       </CardHeader>
       <CardContent>
+        {!isSuperAdmin && (
+          <p className="mb-3 text-xs text-muted-foreground">
+            Bütçe kırılımı kalemleri yalnızca admin tarafından eklenebilir/silinebilir.
+          </p>
+        )}
         <Table>
           <THead>
             <TR>
@@ -682,14 +711,16 @@ function BudgetTab({
                   {b.currency === "TRY" ? "—" : formatMoney(b.amountTRY, "TRY", 2)}
                 </TD>
                 <TD>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Sil"
-                    onClick={() => deleteBudgetItem(b.id, project.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {isSuperAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Sil"
+                      onClick={() => deleteBudgetItem(b.id, project.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </TD>
               </TR>
             ))}
@@ -1039,17 +1070,17 @@ function MonthlyTab({
     return map;
   }, [financials, year]);
 
-  // Yıllık toplamlar TL karşılığı üzerinden (aylar farklı para biriminde olabilir).
-  const totals = MONTHS_TR.reduce(
-    (acc, _, i) => {
-      const f = byMonth.get(i + 1);
-      acc.income += f?.incomeTRY ?? 0;
-      acc.expense += f?.expenseTRY ?? 0;
-      acc.internal += f?.internalIncomeTRY ?? 0;
-      return acc;
-    },
-    { income: 0, expense: 0, internal: 0 }
-  );
+  const monthValues = (field: "expenseTRY" | "incomeTRY" | "internalIncomeTRY") =>
+    Array.from({ length: 12 }, (_, i) => byMonth.get(i + 1)?.[field] ?? 0);
+
+  const expenseByMonth = monthValues("expenseTRY");
+  const incomeByMonth = monthValues("incomeTRY");
+  const internalByMonth = monthValues("internalIncomeTRY");
+  const totals = {
+    expense: expenseByMonth.reduce((s, v) => s + v, 0),
+    income: incomeByMonth.reduce((s, v) => s + v, 0),
+    internal: internalByMonth.reduce((s, v) => s + v, 0),
+  };
 
   return (
     <Card>
@@ -1066,18 +1097,20 @@ function MonthlyTab({
       </CardHeader>
       <CardContent>
         <div className="mb-3 rounded-lg border border-primary/20 bg-accent/50 px-4 py-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Gelir:</span> girdiğiniz giderin %5
-          fazlası olarak otomatik önerilir, ancak gerçek gelir daha yüksekse üzerine yazabilirsiniz
-          (minimum gider + %5&apos;in altına inemez).
+          <span className="font-medium text-foreground">Gider ve Gelir</span>, Faturalar
+          sekmesinde girilen faturaların tipine (Gider/Gelir) ve kesim tarihine göre otomatik
+          hesaplanır — burada elle değiştirilemez.{" "}
+          <span className="font-medium text-foreground">İç Kaynak Geliri</span> faturalardan
+          bağımsızdır ve elle girilir.
         </div>
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <div className="rounded-lg bg-success/10 px-4 py-3">
-            <div className="text-xs font-medium text-success">PT Yıllık Gelir (TL)</div>
-            <div className="text-lg font-bold">{formatMoney(totals.income)}</div>
-          </div>
           <div className="rounded-lg bg-destructive/10 px-4 py-3">
-            <div className="text-xs font-medium text-destructive">PT Yıllık Gider (TL)</div>
+            <div className="text-xs font-medium text-destructive">Yıllık Gider (TL)</div>
             <div className="text-lg font-bold">{formatMoney(totals.expense)}</div>
+          </div>
+          <div className="rounded-lg bg-success/10 px-4 py-3">
+            <div className="text-xs font-medium text-success">Yıllık Gelir (TL)</div>
+            <div className="text-lg font-bold">{formatMoney(totals.income)}</div>
           </div>
           <div className="rounded-lg bg-accent px-4 py-3">
             <div className="text-xs font-medium text-primary">İç Kaynak Geliri (TL)</div>
@@ -1087,25 +1120,40 @@ function MonthlyTab({
         <Table>
           <THead>
             <TR>
-              <TH>Ay</TH>
-              <TH>Gider</TH>
-              <TH>Gelir (min. +%5)</TH>
-              <TH>İç Kaynak Geliri</TH>
-              <TH>Para Birimi</TH>
-              <TH></TH>
+              <TH>Kalem</TH>
+              {MONTHS_TR_SHORT.map((m) => (
+                <TH key={m} className="text-center">
+                  {m}
+                </TH>
+              ))}
+              <TH className="text-right">Toplam</TH>
             </TR>
           </THead>
           <TBody>
-            {MONTHS_TR.map((name, i) => (
-              <MonthlyRow
-                key={i + 1}
-                projectId={project.id}
-                year={year}
-                month={i + 1}
-                name={name}
-                data={byMonth.get(i + 1)}
-              />
-            ))}
+            <TR>
+              <TD className="font-medium text-destructive">Gider</TD>
+              {expenseByMonth.map((v, i) => (
+                <TD key={i} className="text-center tabular-nums text-muted-foreground">
+                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
+                </TD>
+              ))}
+              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.expense)}</TD>
+            </TR>
+            <TR>
+              <TD className="font-medium text-success">Gelir</TD>
+              {incomeByMonth.map((v, i) => (
+                <TD key={i} className="text-center tabular-nums text-muted-foreground">
+                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
+                </TD>
+              ))}
+              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.income)}</TD>
+            </TR>
+            <InternalIncomeRow
+              projectId={project.id}
+              year={year}
+              internalByMonth={internalByMonth}
+              total={totals.internal}
+            />
           </TBody>
         </Table>
       </CardContent>
@@ -1113,101 +1161,64 @@ function MonthlyTab({
   );
 }
 
-function MonthlyRow({
+function InternalIncomeRow({
+  projectId,
+  year,
+  internalByMonth,
+  total,
+}: {
+  projectId: string;
+  year: number;
+  internalByMonth: number[];
+  total: number;
+}) {
+  return (
+    <TR>
+      <TD className="font-medium text-primary">İç Kaynak Geliri</TD>
+      {internalByMonth.map((v, i) => (
+        <TD key={i} className="p-1 text-center">
+          <InternalIncomeCell projectId={projectId} year={year} month={i + 1} value={v} />
+        </TD>
+      ))}
+      <TD className="text-right font-semibold tabular-nums">{formatMoney(total)}</TD>
+    </TR>
+  );
+}
+
+function InternalIncomeCell({
   projectId,
   year,
   month,
-  name,
-  data,
+  value,
 }: {
   projectId: string;
   year: number;
   month: number;
-  name: string;
-  data?: FinancialDTO;
+  value: number;
 }) {
-  const [expense, setExpense] = useState<number>(data?.expense ?? 0);
-  const minIncome = Math.round(expense * INCOME_MARKUP * 100) / 100;
-  const [income, setIncome] = useState<number>(data?.income ?? minIncome);
-  const [incomeEdited, setIncomeEdited] = useState(false);
-  const [internalIncome, setInternalIncome] = useState<number>(data?.internalIncome ?? 0);
-  const [currency, setCurrency] = useState<CurrencyCode>(data?.currency ?? "TRY");
+  const [v, setV] = useState(value);
   const [saving, setSaving] = useState(false);
 
-  function handleExpenseChange(value: number) {
-    setExpense(value);
-    if (!incomeEdited) {
-      setIncome(Math.round(value * INCOME_MARKUP * 100) / 100);
-    }
-  }
-
   async function save() {
+    if (v === value) return;
     setSaving(true);
-    await upsertMonthlyFinancial({
-      projectId,
-      year,
-      month,
-      expense,
-      income,
-      internalIncome,
-      currency,
-    });
+    await upsertInternalIncome({ projectId, year, month, internalIncome: v || 0, currency: "TRY" });
     setSaving(false);
   }
 
   return (
-    <TR>
-      <TD className="font-medium">{name}</TD>
-      <TD>
-        <Input
-          type="number"
-          step="0.01"
-          value={expense}
-          onChange={(e) => handleExpenseChange(Number(e.target.value))}
-          className="h-8"
-        />
-      </TD>
-      <TD>
-        <Input
-          type="number"
-          step="0.01"
-          min={minIncome}
-          value={income}
-          onChange={(e) => {
-            setIncome(Number(e.target.value));
-            setIncomeEdited(true);
-          }}
-          className="h-8"
-        />
-      </TD>
-      <TD>
-        <Input
-          type="number"
-          step="0.01"
-          value={internalIncome}
-          onChange={(e) => setInternalIncome(Number(e.target.value))}
-          className="h-8"
-        />
-      </TD>
-      <TD>
-        <Select
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-          className="h-8 w-24"
-        >
-          {CURRENCIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-      </TD>
-      <TD>
-        <Button size="sm" variant="outline" onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Kaydet"}
-        </Button>
-      </TD>
-    </TR>
+    <input
+      type="number"
+      step="0.01"
+      min={0}
+      value={v || ""}
+      onChange={(e) => setV(Number(e.target.value))}
+      onBlur={save}
+      className={cn(
+        "h-8 w-full rounded border-0 bg-transparent text-center text-sm tabular-nums outline-none focus:bg-accent",
+        saving && "opacity-50"
+      )}
+    />
   );
 }
 
@@ -1242,6 +1253,8 @@ function InvoicesTab({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const input = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      type: fd.get("type") as any,
       description: String(fd.get("description")),
       amount: Number(fd.get("amount")),
       currency: fd.get("currency") as CurrencyCode,
@@ -1277,6 +1290,7 @@ function InvoicesTab({
         <Table>
           <THead>
             <TR>
+              <TH>Tip</TH>
               <TH>Açıklama</TH>
               <TH>EBA No</TH>
               <TH>Kur Farkı EBA No</TH>
@@ -1291,6 +1305,11 @@ function InvoicesTab({
           <TBody>
             {invoices.map((inv) => (
               <TR key={inv.id}>
+                <TD>
+                  <Badge tone={inv.type === "EXPENSE" ? "destructive" : "success"}>
+                    {INVOICE_TYPE_LABELS[inv.type ?? "INCOME"]}
+                  </Badge>
+                </TD>
                 <TD className="font-medium">{inv.description}</TD>
                 <TD>{inv.ebaNumber || "—"}</TD>
                 <TD>{inv.hasExchangeRateDiff ? inv.exchangeRateDiffEbaNumber || "—" : "—"}</TD>
@@ -1353,7 +1372,7 @@ function InvoicesTab({
             ))}
             {invoices.length === 0 && (
               <TR>
-                <TD colSpan={9} className="py-8 text-center text-muted-foreground">
+                <TD colSpan={10} className="py-8 text-center text-muted-foreground">
                   Fatura kaydı yok.
                 </TD>
               </TR>
@@ -1372,6 +1391,16 @@ function InvoicesTab({
       >
         <form key={editingInvoice?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label>Tip</Label>
+              <Select name="type" defaultValue={editingInvoice?.type ?? "INCOME"}>
+                {Object.entries(INVOICE_TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <div className="col-span-2">
               <Label>Açıklama</Label>
               <Input name="description" defaultValue={editingInvoice?.description} required />
@@ -1470,221 +1499,6 @@ function InvoicesTab({
     </Card>
   );
 }
-
-// ── Ödeme Planı ─────────────────────────────────────────
-
-function PaymentPlanTab({
-  project,
-  paymentPlanItems,
-}: {
-  project: ProjectDTO;
-  paymentPlanItems: PaymentPlanItemDTO[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<PaymentPlanItemDTO | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  function openAddDialog() {
-    setEditingItem(null);
-    setOpen(true);
-  }
-
-  function openEditDialog(item: PaymentPlanItemDTO) {
-    setEditingItem(item);
-    setOpen(true);
-  }
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const input = {
-      description: String(fd.get("description")),
-      amount: Number(fd.get("amount")),
-      currency: fd.get("currency") as CurrencyCode,
-      dueDate: String(fd.get("dueDate")),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      status: fd.get("status") as any,
-      note: fd.get("note") ? String(fd.get("note")) : undefined,
-    };
-    if (editingItem) {
-      await updatePaymentPlanItem(editingItem.id, input);
-    } else {
-      await addPaymentPlanItem({ projectId: project.id, ...input });
-    }
-    setLoading(false);
-    setOpen(false);
-    setEditingItem(null);
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Ödeme Planı</CardTitle>
-        <Button size="sm" onClick={openAddDialog}>
-          <Plus className="h-4 w-4" /> Ödeme Ekle
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <THead>
-            <TR>
-              <TH>Açıklama</TH>
-              <TH>Vade Tarihi</TH>
-              <TH className="text-right">Tutar</TH>
-              <TH className="text-right">TL Karşılığı</TH>
-              <TH>Not</TH>
-              <TH>Durum</TH>
-              <TH></TH>
-            </TR>
-          </THead>
-          <TBody>
-            {paymentPlanItems.map((item) => (
-              <TR key={item.id}>
-                <TD className="font-medium">{item.description}</TD>
-                <TD className="text-muted-foreground">{formatDate(item.dueDate)}</TD>
-                <TD className="text-right font-medium">
-                  {formatMoney(item.amount, item.currency, 2)}
-                </TD>
-                <TD className="text-right text-muted-foreground">
-                  {item.currency === "TRY" ? "—" : formatMoney(item.amountTRY, "TRY", 2)}
-                </TD>
-                <TD className="text-muted-foreground">{item.note || "—"}</TD>
-                <TD>
-                  <Select
-                    className="h-8 w-36"
-                    defaultValue={item.status}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onChange={(e) => updatePaymentPlanStatus(item.id, e.target.value as any)}
-                  >
-                    {Object.entries(PAYMENT_STATUS_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </Select>
-                </TD>
-                <TD>
-                  <div className="flex items-center gap-1">
-                    {(() => {
-                      const derived = getPaymentPlanDerivedStatus(item.status, item.dueDate);
-                      return (
-                        <div>
-                          <Badge tone={derived.tone}>{derived.label}</Badge>
-                          {derived.description && (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {derived.description}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Düzenle"
-                      onClick={() => openEditDialog(item)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Sil"
-                      onClick={() => deletePaymentPlanItem(item.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TD>
-              </TR>
-            ))}
-            {paymentPlanItems.length === 0 && (
-              <TR>
-                <TD colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Ödeme planı kaydı yok.
-                </TD>
-              </TR>
-            )}
-          </TBody>
-        </Table>
-      </CardContent>
-
-      <Dialog
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          setEditingItem(null);
-        }}
-        title={editingItem ? "Ödeme Düzenle" : "Ödeme Ekle"}
-      >
-        <form key={editingItem?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label>Açıklama</Label>
-              <Input name="description" defaultValue={editingItem?.description} required />
-            </div>
-            <div>
-              <Label>Tutar</Label>
-              <Input
-                name="amount"
-                type="number"
-                step="0.01"
-                min={0}
-                defaultValue={editingItem?.amount}
-                required
-              />
-            </div>
-            <div>
-              <Label>Para Birimi</Label>
-              <CurrencySelect name="currency" defaultValue={editingItem?.currency} />
-            </div>
-            <div>
-              <Label>Vade Tarihi</Label>
-              <Input
-                name="dueDate"
-                type="date"
-                defaultValue={editingItem?.dueDate.slice(0, 10)}
-                required
-              />
-            </div>
-            <div>
-              <Label>Durum</Label>
-              <Select name="status" defaultValue={editingItem?.status ?? "PLANNED"}>
-                {Object.entries(PAYMENT_STATUS_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="col-span-2">
-              <Label>Not</Label>
-              <Input name="note" placeholder="Opsiyonel" defaultValue={editingItem?.note ?? ""} />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setOpen(false);
-                setEditingItem(null);
-              }}
-            >
-              Vazgeç
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
-              {editingItem ? "Kaydet" : "Ekle"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-    </Card>
-  );
-}
-
 // ── Değişiklik Geçmişi ──────────────────────────────────
 
 const FIELD_LABELS: Record<string, string> = {
@@ -1701,6 +1515,8 @@ const FIELD_LABELS: Record<string, string> = {
   status: "Durum",
   description: "Açıklama",
   jiraLink: "JIRA Linki",
+  paymentPlanNote: "Ödeme Planı",
+  kind: "Tür",
   oluşturma: "Oluşturma",
 };
 

@@ -8,7 +8,6 @@ import type {
   FinancialDTO,
   InvoiceDTO,
   LogDTO,
-  PaymentPlanItemDTO,
   ProjectDTO,
   ProjectTaskDTO,
   RatesDTO,
@@ -42,7 +41,6 @@ export default async function ProjectDetailPage({
       budgetItems: true,
       financials: { orderBy: [{ year: "asc" }, { month: "asc" }] },
       invoices: { orderBy: { issueDate: "asc" } },
-      paymentPlanItems: { orderBy: { dueDate: "asc" } },
       tasks: {
         orderBy: [{ order: "asc" }, { startDate: "asc" }],
         include: {
@@ -87,6 +85,7 @@ export default async function ProjectDetailPage({
     status: project.status,
     description: project.description,
     jiraLink: project.jiraLink,
+    paymentPlanNote: project.paymentPlanNote,
   };
 
   const logs: LogDTO[] = project.logs.map((l) => ({
@@ -153,6 +152,7 @@ export default async function ProjectDetailPage({
     return {
       id: i.id,
       projectId: i.projectId,
+      type: i.type,
       description: i.description,
       amount: Number(i.amount),
       currency,
@@ -163,21 +163,6 @@ export default async function ProjectDetailPage({
       poNumber: i.poNumber,
       hasExchangeRateDiff: i.hasExchangeRateDiff,
       exchangeRateDiffEbaNumber: i.exchangeRateDiffEbaNumber,
-    };
-  });
-
-  const paymentPlanItems: PaymentPlanItemDTO[] = project.paymentPlanItems.map((p) => {
-    const currency = p.currency as CurrencyCode;
-    return {
-      id: p.id,
-      projectId: p.projectId,
-      description: p.description,
-      amount: Number(p.amount),
-      currency,
-      amountTRY: toTRY(Number(p.amount), currency, rates),
-      dueDate: p.dueDate.toISOString().slice(0, 10),
-      status: p.status,
-      note: p.note,
     };
   });
 
@@ -221,7 +206,6 @@ export default async function ProjectDetailPage({
       budgetItems={budgetItems}
       financials={financials}
       invoices={invoices}
-      paymentPlanItems={paymentPlanItems}
       tasks={tasks}
       rates={ratesDto}
       isAdmin={isAdmin}
