@@ -28,6 +28,15 @@ const statusTone = (s: string) =>
           ? "warning"
           : "destructive";
 
+// Proje kodu (örn. "PRJ-101", "Demand-7", "AUTO-3") önekine göre kategori çıkarımı.
+const CODE_PREFIXES = ["PRJ", "DEMAND", "AUTO"] as const;
+type CodePrefix = (typeof CODE_PREFIXES)[number];
+
+function codePrefixOf(code: string): CodePrefix | null {
+  const c = code.toLocaleUpperCase("tr");
+  return CODE_PREFIXES.find((p) => c.startsWith(p)) ?? null;
+}
+
 // Risk/Öncelik için mantıksal sıralama (alfabetik değil).
 const LEVEL_RANK: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 
@@ -78,20 +87,32 @@ export function ProjectsClient({
   const [editing, setEditing] = useState<ProjectDTO | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [codeFilters, setCodeFilters] = useState<CodePrefix[]>([]);
+
+  function toggleCodeFilter(prefix: CodePrefix) {
+    setCodeFilters((prev) =>
+      prev.includes(prefix) ? prev.filter((p) => p !== prefix) : [...prev, prefix]
+    );
+  }
 
   // Filtreleme memoize edilir; aksi halde her tuş vuruşunda yeni bir dizi
   // referansı üretilip useSort'un yeniden sıralamasını tetikliyordu.
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
-    if (!q) return projects;
-    return projects.filter(
-      (p) =>
+    return projects.filter((p) => {
+      if (codeFilters.length > 0) {
+        const prefix = codePrefixOf(p.projectCode);
+        if (!prefix || !codeFilters.includes(prefix)) return false;
+      }
+      if (!q) return true;
+      return (
         p.projectCode.toLocaleLowerCase("tr").includes(q) ||
         (p.pipelineCode ?? "").toLocaleLowerCase("tr").includes(q) ||
         p.name.toLocaleLowerCase("tr").includes(q) ||
         p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
-    );
-  }, [projects, query]);
+      );
+    });
+  }, [projects, query, codeFilters]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, projectValue, {
     key: "status",
@@ -128,14 +149,29 @@ export function ProjectsClient({
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Proje kodu, isim veya fabrika ara…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative max-w-sm flex-1 min-w-[220px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Proje kodu, isim veya fabrika ara…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          {CODE_PREFIXES.map((prefix) => (
+            <label key={prefix} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={codeFilters.includes(prefix)}
+                onChange={() => toggleCodeFilter(prefix)}
+                className="h-4 w-4 accent-[var(--primary)]"
+              />
+              {prefix}
+            </label>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -240,7 +276,7 @@ export function ProjectsClient({
             {sorted.length === 0 && (
               <TR>
                 <TD colSpan={11} className="py-10 text-center text-muted-foreground">
-                  {query.trim()
+                  {query.trim() || codeFilters.length > 0
                     ? "Aramanızla eşleşen proje bulunamadı."
                     : "Henüz proje yok. “Yeni Proje” ile başlayın."}
                 </TD>

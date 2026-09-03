@@ -71,18 +71,27 @@ export function LeadCrClient({
   const [editing, setEditing] = useState<ProjectDTO | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [kindFilters, setKindFilters] = useState<string[]>([]);
+
+  function toggleKindFilter(kind: string) {
+    setKindFilters((prev) =>
+      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
+    );
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
-    if (!q) return items;
-    return items.filter(
-      (p) =>
+    return items.filter((p) => {
+      if (kindFilters.length > 0 && !kindFilters.includes(p.kind)) return false;
+      if (!q) return true;
+      return (
         p.projectCode.toLocaleLowerCase("tr").includes(q) ||
         (p.pipelineCode ?? "").toLocaleLowerCase("tr").includes(q) ||
         p.name.toLocaleLowerCase("tr").includes(q) ||
         p.factoryNames.join(", ").toLocaleLowerCase("tr").includes(q)
-    );
-  }, [items, query]);
+      );
+    });
+  }, [items, query, kindFilters]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useSort(filtered, itemValue, {
     key: "status",
@@ -119,14 +128,29 @@ export function LeadCrClient({
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Kod, isim veya fabrika ara…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative max-w-sm flex-1 min-w-[220px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Kod, isim veya fabrika ara…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          {(["LEAD", "CR"] as const).map((kind) => (
+            <label key={kind} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={kindFilters.includes(kind)}
+                onChange={() => toggleKindFilter(kind)}
+                className="h-4 w-4 accent-[var(--primary)]"
+              />
+              {KIND_LABELS[kind]}
+            </label>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -213,7 +237,7 @@ export function LeadCrClient({
             {sorted.length === 0 && (
               <TR>
                 <TD colSpan={9} className="py-10 text-center text-muted-foreground">
-                  {query.trim()
+                  {query.trim() || kindFilters.length > 0
                     ? "Aramanızla eşleşen kayıt bulunamadı."
                     : "Henüz Lead/CR kaydı yok. “Yeni Lead / CR” ile başlayın."}
                 </TD>
