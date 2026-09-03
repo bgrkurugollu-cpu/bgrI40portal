@@ -198,3 +198,29 @@ export async function deleteInvoice(id: string) {
   revalidatePath(`/projects/${inv.projectId}`);
   revalidatePath("/finance");
 }
+
+// ── Ödeme Planı (Milestone bazlı) ────────────────────────
+
+export async function addPaymentMilestone(projectId: string) {
+  await requirePageEdit("projects");
+  const count = await prisma.paymentMilestone.count({ where: { projectId } });
+  await prisma.paymentMilestone.create({
+    data: { projectId, order: count, label: `Milestone ${count + 1}`, percentage: 0 },
+  });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updatePaymentMilestone(
+  id: string,
+  input: { label: string; percentage: number }
+) {
+  await requirePageEdit("projects");
+  const m = await prisma.paymentMilestone.update({ where: { id }, data: input });
+  revalidatePath(`/projects/${m.projectId}`);
+}
+
+export async function deletePaymentMilestone(id: string) {
+  await requirePageEdit("projects");
+  const m = await prisma.paymentMilestone.delete({ where: { id } });
+  revalidatePath(`/projects/${m.projectId}`);
+}

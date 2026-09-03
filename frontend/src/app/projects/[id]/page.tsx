@@ -8,6 +8,7 @@ import type {
   FinancialDTO,
   InvoiceDTO,
   LogDTO,
+  PaymentMilestoneDTO,
   ProjectDTO,
   ProjectTaskDTO,
   RatesDTO,
@@ -41,6 +42,7 @@ export default async function ProjectDetailPage({
       budgetItems: true,
       financials: { orderBy: [{ year: "asc" }, { month: "asc" }] },
       invoices: { orderBy: { issueDate: "asc" } },
+      paymentMilestones: { orderBy: { order: "asc" } },
       tasks: {
         orderBy: [{ order: "asc" }, { startDate: "asc" }],
         include: {
@@ -166,6 +168,14 @@ export default async function ProjectDetailPage({
     };
   });
 
+  const paymentMilestones: PaymentMilestoneDTO[] = project.paymentMilestones.map((m) => ({
+    id: m.id,
+    projectId: m.projectId,
+    order: m.order,
+    label: m.label,
+    percentage: Number(m.percentage),
+  }));
+
   const tasks: ProjectTaskDTO[] = project.tasks.map((t) => ({
     id: t.id,
     projectId: t.projectId,
@@ -206,6 +216,7 @@ export default async function ProjectDetailPage({
       budgetItems={budgetItems}
       financials={financials}
       invoices={invoices}
+      paymentMilestones={paymentMilestones}
       tasks={tasks}
       rates={ratesDto}
       isAdmin={isAdmin}

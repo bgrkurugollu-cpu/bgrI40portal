@@ -18,6 +18,7 @@ import {
   CalendarRange,
   Check,
   ExternalLink,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,9 @@ import {
   updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
+  addPaymentMilestone,
+  updatePaymentMilestone,
+  deletePaymentMilestone,
 } from "@/app/actions/finance";
 import {
   parseBudgetExcelFile,
@@ -58,6 +62,7 @@ import type {
   InvoiceDTO,
   LogDTO,
   MemberDTO,
+  PaymentMilestoneDTO,
   ProjectDTO,
   ProjectTaskDTO,
   RatesDTO,
@@ -102,13 +107,14 @@ function CurrencySelect({
   );
 }
 
-type Tab = "team" | "budget" | "monthly" | "invoices" | "plan" | "history";
+type Tab = "team" | "budget" | "monthly" | "invoices" | "payments" | "plan" | "history";
 
 const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "team", label: "Ekip & Efor", icon: Users },
   { id: "budget", label: "Bütçe Kırılımı", icon: ListTree },
   { id: "monthly", label: "Aylık Finans", icon: CalendarDays },
   { id: "invoices", label: "Faturalar", icon: Receipt },
+  { id: "payments", label: "Ödeme Planı", icon: Wallet },
   { id: "plan", label: "Proje Planı", icon: CalendarRange },
   { id: "history", label: "Değişiklik Geçmişi", icon: History },
 ];
@@ -120,6 +126,7 @@ export function ProjectDetailClient(props: {
   budgetItems: BudgetItemDTO[];
   financials: FinancialDTO[];
   invoices: InvoiceDTO[];
+  paymentMilestones: PaymentMilestoneDTO[];
   tasks: ProjectTaskDTO[];
   rates: RatesDTO;
   factories: FactoryDTO[];
@@ -148,6 +155,15 @@ export function ProjectDetailClient(props: {
   const ciro = financeTotals.income + financeTotals.internal;
   // Karlılık: (Toplam Gelir − Gider) / Toplam Gelir.
   const profitability = ciro > 0 ? (ciro - financeTotals.expense) / ciro : 0;
+
+  // Ödeme Planı: Bütçe Kırılımı toplamı, milestone yüzdelerine göre bölünür.
+  // Zaten kesilmiş (Kesildi) gerçek gelir faturaları düşülünce kalan kesilmesi
+  // gereken gelir ortaya çıkar.
+  const issuedIncomeTRY = props.invoices
+    .filter((i) => i.type === "INCOME" && i.status === "ISSUED")
+    .reduce((s, i) => s + i.amountTRY, 0);
+  const remainingToInvoice = Math.max(0, budgetTotal - issuedIncomeTRY);
+  const milestonePercentTotal = props.paymentMilestones.reduce((s, m) => s + m.percentage, 0);
 
   return (
     <div className="space-y-6">
@@ -224,7 +240,7 @@ export function ProjectDetailClient(props: {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
         <StatCard label="Proje Cirosu" value={formatMoney(ciro)} />
         <StatCard label="Bütçe Kırılımı (TL karşılığı)" value={formatMoney(budgetTotal)} />
@@ -241,6 +257,15 @@ export function ProjectDetailClient(props: {
             plannedTotal > 0
               ? `Plana oran: %${Math.round((actualTotal / plannedTotal) * 100)}`
               : undefined
+          }
+        />
+        <StatCard
+          label="Kesilmesi Gereken Gelir"
+          value={formatMoney(remainingToInvoice)}
+          sub={
+            props.paymentMilestones.length > 0
+              ? `Ödeme Planı: %${milestonePercentTotal} tanımlı`
+              : "Bütçe Kırılımı − Kesilmiş Gelir Faturaları"
           }
         />
       </div>
@@ -267,6 +292,14 @@ export function ProjectDetailClient(props: {
         {tab === "budget" && <BudgetTab {...props} />}
         {tab === "monthly" && <MonthlyTab {...props} />}
         {tab === "invoices" && <InvoicesTab {...props} />}
+        {tab === "payments" && (
+          <PaymentPlanTab
+            project={project}
+            paymentMilestones={props.paymentMilestones}
+            budgetTotal={budgetTotal}
+            issuedIncomeTRY={issuedIncomeTRY}
+          />
+        )}
         {tab === "plan" && (
           <ProjectPlanTab
             project={project}
@@ -1438,6 +1471,156 @@ function InvoicesTab({
     </Card>
   );
 }
+
+// ── Ödeme Planı (Milestone bazlı) ────────────────────────
+
+function PaymentPlanTab({
+  project,
+  paymentMilestones,
+  budgetTotal,
+  issuedIncomeTRY,
+}: {
+  project: ProjectDTO;
+  paymentMilestones: PaymentMilestoneDTO[];
+  budgetTotal: number;
+  issuedIncomeTRY: number;
+}) {
+  const [adding, setAdding] = useState(false);
+
+  const percentTotal = paymentMilestones.reduce((s, m) => s + m.percentage, 0);
+  const amountTotal = paymentMilestones.reduce(
+    (s, m) => s + (budgetTotal * m.percentage) / 100,
+    0
+  );
+
+  async function onAdd() {
+    setAdding(true);
+    await addPaymentMilestone(project.id);
+    setAdding(false);
+  }
+
+  async function onDelete(m: PaymentMilestoneDTO) {
+    if (!window.confirm(`"${m.label}" milestone'unu silmek istediğinize emin misiniz?`)) return;
+    await deletePaymentMilestone(m.id);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+          <CardTitle>Ödeme Planı</CardTitle>
+          <CardDescription>
+            Bütçe Kırılımı toplamı ({formatMoney(budgetTotal)}), aşağıdaki milestone
+            yüzdelerine göre bölünerek her milestone&apos;da kesilmesi gereken gelir tutarı
+            hesaplanır.
+          </CardDescription>
+        </div>
+        <Button size="sm" onClick={onAdd} disabled={adding}>
+          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Milestone Ekle
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {paymentMilestones.length === 0 ? (
+          <p className="py-8 text-center text-muted-foreground">
+            Henüz milestone yok. &quot;Milestone Ekle&quot; ile başlayın (örn. %30 / %40 / %30
+            gibi 3 milestone&apos;lık bir ödeme planı).
+          </p>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Milestone</TH>
+                <TH className="text-right">Yüzde (%)</TH>
+                <TH className="text-right">Tutar (TL)</TH>
+                <TH></TH>
+              </TR>
+            </THead>
+            <TBody>
+              {paymentMilestones.map((m) => (
+                <MilestoneRow key={m.id} milestone={m} budgetTotal={budgetTotal} onDelete={() => onDelete(m)} />
+              ))}
+            </TBody>
+            <tfoot>
+              <TR className="font-semibold">
+                <TD>Toplam</TD>
+                <TD
+                  className={cn(
+                    "text-right tabular-nums",
+                    percentTotal !== 100 && "text-destructive"
+                  )}
+                >
+                  %{percentTotal}
+                  {percentTotal !== 100 && " (100 olmalı)"}
+                </TD>
+                <TD className="text-right tabular-nums">{formatMoney(amountTotal)}</TD>
+                <TD></TD>
+              </TR>
+            </tfoot>
+          </Table>
+        )}
+        <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm">
+          <span className="font-medium">Şu ana kadar kesilmiş gelir faturaları (TL)</span>
+          <span className="text-base font-bold">{formatMoney(issuedIncomeTRY)}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MilestoneRow({
+  milestone,
+  budgetTotal,
+  onDelete,
+}: {
+  milestone: PaymentMilestoneDTO;
+  budgetTotal: number;
+  onDelete: () => void;
+}) {
+  const [label, setLabel] = useState(milestone.label);
+  const [percentage, setPercentage] = useState(milestone.percentage);
+  const [saving, setSaving] = useState(false);
+
+  async function save(next: { label: string; percentage: number }) {
+    setSaving(true);
+    await updatePaymentMilestone(milestone.id, next);
+    setSaving(false);
+  }
+
+  return (
+    <TR>
+      <TD>
+        <Input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => save({ label, percentage })}
+          className={cn("h-8", saving && "opacity-50")}
+        />
+      </TD>
+      <TD className="text-right">
+        <Input
+          type="number"
+          step="0.01"
+          min={0}
+          max={100}
+          value={percentage}
+          onChange={(e) => setPercentage(Number(e.target.value))}
+          onBlur={() => save({ label, percentage })}
+          className="h-8 text-right tabular-nums"
+        />
+      </TD>
+      <TD className="text-right font-medium tabular-nums">
+        {formatMoney((budgetTotal * percentage) / 100)}
+      </TD>
+      <TD>
+        <Button variant="ghost" size="icon" aria-label="Sil" onClick={onDelete}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </TD>
+    </TR>
+  );
+}
+
 // ── Değişiklik Geçmişi ──────────────────────────────────
 
 const FIELD_LABELS: Record<string, string> = {

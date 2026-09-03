@@ -113,8 +113,23 @@ model Project {
   financials      MonthlyFinancial[]
   invoices        Invoice[]
   paymentPlanItems PaymentPlanItem[]
+  paymentMilestones PaymentMilestone[]
   tasks           ProjectTask[]
   capexSubItems   CapexSubItem[]
+}
+
+// Ödeme Planı (revize): projenin toplam bütçesi (Bütçe Kırılımı toplamı), burada
+// tanımlanan milestone'ların yüzdelerine göre bölünür — hangi milestone'da ne
+// kadar fatura kesilmesi gerektiğini gösterir. "Milestone Ekle" ile sayı artar.
+model PaymentMilestone {
+  id         String  @id @default(cuid())
+  projectId  String
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order      Int     @default(0)
+  label      String  @default("Milestone")
+  percentage Decimal @default(0) @db.Decimal(5, 2)
+
+  @@index([projectId])
 }
 
 // Tarihsel değişiklik logu

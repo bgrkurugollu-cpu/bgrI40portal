@@ -121,6 +121,14 @@ export type PaymentPlanItemDTO = {
   note: string | null;
 };
 
+export type PaymentMilestoneDTO = {
+  id: string;
+  projectId: string;
+  order: number;
+  label: string;
+  percentage: number;
+};
+
 export type PtDTO = {
   id: string;
   ptCode: string;
