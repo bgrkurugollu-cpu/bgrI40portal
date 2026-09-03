@@ -209,10 +209,12 @@ enum InvoiceStatus {
   ISSUED
 }
 
-// Fatura gider mi gelir mi — aylık finans (Gider/Gelir) buna göre otomatik hesaplanır.
+// Fatura gider mi, gelir mi, yoksa iç kaynak geliri mi — aylık finans
+// (Gider/Gelir/İç Kaynak Geliri) buna göre otomatik hesaplanır.
 enum InvoiceType {
   EXPENSE
   INCOME
+  INTERNAL
 }
 
 // Faturalama takvimi

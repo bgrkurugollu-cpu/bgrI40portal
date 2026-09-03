@@ -15,9 +15,9 @@ async function requireAdmin() {
   return session;
 }
 
-// Bir proje + yıl + ay için Gider/Gelir alanlarını, o aya ait tüm faturaların
-// (tipine göre) TL karşılığı toplamından yeniden hesaplar. İç Kaynak Geliri
-// faturalardan bağımsızdır ve elle girilmeye devam eder.
+// Bir proje + yıl + ay için Gider/Gelir/İç Kaynak Geliri alanlarını, o aya ait
+// tüm faturaların (tipine göre) TL karşılığı toplamından yeniden hesaplar.
+// Üçü de artık faturadan türetilir — elle girilen bir alan kalmadı.
 async function recomputeMonthlyFinancialFromInvoices(projectId: string, year: number, month: number) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
@@ -27,55 +27,23 @@ async function recomputeMonthlyFinancialFromInvoices(projectId: string, year: nu
   const rates = await getRates();
   let income = 0;
   let expense = 0;
+  let internalIncome = 0;
   for (const inv of invoices) {
     const tl = toTRY(Number(inv.amount), inv.currency as Currency, rates);
     if (inv.type === "INCOME") income += tl;
+    else if (inv.type === "INTERNAL") internalIncome += tl;
     else expense += tl;
   }
   income = Math.round(income * 100) / 100;
   expense = Math.round(expense * 100) / 100;
+  internalIncome = Math.round(internalIncome * 100) / 100;
 
   await prisma.monthlyFinancial.upsert({
     where: { projectId_year_month: { projectId, year, month } },
-    create: { projectId, year, month, income, expense, internalIncome: 0, currency: "TRY" },
-    update: { income, expense, currency: "TRY" },
+    create: { projectId, year, month, income, expense, internalIncome, currency: "TRY" },
+    update: { income, expense, internalIncome, currency: "TRY" },
   });
   revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/finance");
-  revalidatePath("/");
-}
-
-// İç Kaynak Geliri, faturalardan bağımsız elle girilen tek alandır — Gider/Gelir
-// artık faturalardan otomatik hesaplandığı için bu alana dokunulmaz.
-export async function upsertInternalIncome(input: {
-  projectId: string;
-  year: number;
-  month: number;
-  internalIncome: number;
-  currency: Currency;
-}) {
-  await requirePageEdit("projects");
-
-  await prisma.monthlyFinancial.upsert({
-    where: {
-      projectId_year_month: {
-        projectId: input.projectId,
-        year: input.year,
-        month: input.month,
-      },
-    },
-    create: {
-      projectId: input.projectId,
-      year: input.year,
-      month: input.month,
-      income: 0,
-      expense: 0,
-      internalIncome: input.internalIncome,
-      currency: input.currency,
-    },
-    update: { internalIncome: input.internalIncome },
-  });
-  revalidatePath(`/projects/${input.projectId}`);
   revalidatePath("/finance");
   revalidatePath("/");
 }

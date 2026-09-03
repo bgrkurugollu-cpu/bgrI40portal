@@ -94,7 +94,7 @@ export type InvoiceDTO = {
   projectId: string;
   projectCode?: string;
   projectName?: string;
-  type?: "EXPENSE" | "INCOME";
+  type?: "EXPENSE" | "INCOME" | "INTERNAL";
   description: string;
   amount: number;
   currency: CurrencyCode;

@@ -100,6 +100,7 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
 export const INVOICE_TYPE_LABELS: Record<string, string> = {
   EXPENSE: "Gider",
   INCOME: "Gelir",
+  INTERNAL: "İç Kaynak Geliri",
 };
 
 export const INVOICE_APPROACHING_DAYS = 7;

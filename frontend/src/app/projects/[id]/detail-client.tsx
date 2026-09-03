@@ -38,7 +38,6 @@ import {
   addBudgetItem,
   deleteBudgetItem,
   importBudgetItemsForProject,
-  upsertInternalIncome,
   addInvoice,
   updateInvoice,
   updateInvoiceStatus,
@@ -71,7 +70,6 @@ import {
   formatDate,
   formatMoney,
   getInvoiceDerivedStatus,
-  INCOME_MARKUP,
   INVOICE_STATUS_LABELS,
   INVOICE_TYPE_LABELS,
   MONTHS_TR,
@@ -137,10 +135,8 @@ export function ProjectDetailClient(props: {
   const actualTotal = props.assignments.reduce((s, a) => s + a.actualDays, 0);
   // Bütçe kalemleri farklı para biriminde olabilir; toplam TL karşılığı üzerinden.
   const budgetTotal = props.budgetItems.reduce((s, b) => s + b.amountTRY, 0);
-  // Proje cirosu: projenin tüm yıllarındaki aylık gelir + iç kaynak geliri toplamı.
-  const ciro = props.financials.reduce((s, f) => s + f.incomeTRY + f.internalIncomeTRY, 0);
-  // Karlılık: (İç Kaynak Geliri + gider × %5) / Toplam Gelir — PT'deki "gider + %5 gelir
-  // kuralı" ile aynı mantık, projenin gerçek gelirine oranlanır.
+  // Toplam Gelir: Gelir + İç Kaynak Geliri (iç kaynak geliri, gelirin bir kalemidir).
+  // Ciro ve Karlılık aynı toplam gelir tabanını kullanır.
   const financeTotals = props.financials.reduce(
     (acc, f) => ({
       income: acc.income + f.incomeTRY,
@@ -149,10 +145,9 @@ export function ProjectDetailClient(props: {
     }),
     { income: 0, expense: 0, internal: 0 }
   );
-  const profitability =
-    financeTotals.income > 0
-      ? (financeTotals.internal + financeTotals.expense * (INCOME_MARKUP - 1)) / financeTotals.income
-      : 0;
+  const ciro = financeTotals.income + financeTotals.internal;
+  // Karlılık: (Toplam Gelir − Gider) / Toplam Gelir.
+  const profitability = ciro > 0 ? (ciro - financeTotals.expense) / ciro : 0;
 
   return (
     <div className="space-y-6">
@@ -236,7 +231,7 @@ export function ProjectDetailClient(props: {
         <StatCard
           label="Karlılık"
           value={`%${Math.round(profitability * 100)}`}
-          sub="(İç Kaynak + Gider×%5) / Gelir"
+          sub="(Toplam Gelir − Gider) / Toplam Gelir"
         />
         <StatCard label="Planlanan Efor" value={`${plannedTotal.toFixed(0)} adam-gün`} />
         <StatCard
@@ -1097,11 +1092,9 @@ function MonthlyTab({
       </CardHeader>
       <CardContent>
         <div className="mb-3 rounded-lg border border-primary/20 bg-accent/50 px-4 py-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Gider ve Gelir</span>, Faturalar
-          sekmesinde girilen faturaların tipine (Gider/Gelir) ve kesim tarihine göre otomatik
-          hesaplanır — burada elle değiştirilemez.{" "}
-          <span className="font-medium text-foreground">İç Kaynak Geliri</span> faturalardan
-          bağımsızdır ve elle girilir.
+          <span className="font-medium text-foreground">Gider, Gelir ve İç Kaynak Geliri</span>,
+          Faturalar sekmesinde girilen faturaların tipine (Gider/Gelir/İç Kaynak Geliri) ve kesim
+          tarihine göre otomatik hesaplanır — burada elle değiştirilemez.
         </div>
         <div className="mb-4 grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-destructive/10 px-4 py-3">
@@ -1148,77 +1141,19 @@ function MonthlyTab({
               ))}
               <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.income)}</TD>
             </TR>
-            <InternalIncomeRow
-              projectId={project.id}
-              year={year}
-              internalByMonth={internalByMonth}
-              total={totals.internal}
-            />
+            <TR>
+              <TD className="font-medium text-primary">İç Kaynak Geliri</TD>
+              {internalByMonth.map((v, i) => (
+                <TD key={i} className="text-center tabular-nums text-muted-foreground">
+                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
+                </TD>
+              ))}
+              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.internal)}</TD>
+            </TR>
           </TBody>
         </Table>
       </CardContent>
     </Card>
-  );
-}
-
-function InternalIncomeRow({
-  projectId,
-  year,
-  internalByMonth,
-  total,
-}: {
-  projectId: string;
-  year: number;
-  internalByMonth: number[];
-  total: number;
-}) {
-  return (
-    <TR>
-      <TD className="font-medium text-primary">İç Kaynak Geliri</TD>
-      {internalByMonth.map((v, i) => (
-        <TD key={i} className="p-1 text-center">
-          <InternalIncomeCell projectId={projectId} year={year} month={i + 1} value={v} />
-        </TD>
-      ))}
-      <TD className="text-right font-semibold tabular-nums">{formatMoney(total)}</TD>
-    </TR>
-  );
-}
-
-function InternalIncomeCell({
-  projectId,
-  year,
-  month,
-  value,
-}: {
-  projectId: string;
-  year: number;
-  month: number;
-  value: number;
-}) {
-  const [v, setV] = useState(value);
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    if (v === value) return;
-    setSaving(true);
-    await upsertInternalIncome({ projectId, year, month, internalIncome: v || 0, currency: "TRY" });
-    setSaving(false);
-  }
-
-  return (
-    <input
-      type="number"
-      step="0.01"
-      min={0}
-      value={v || ""}
-      onChange={(e) => setV(Number(e.target.value))}
-      onBlur={save}
-      className={cn(
-        "h-8 w-full rounded border-0 bg-transparent text-center text-sm tabular-nums outline-none focus:bg-accent",
-        saving && "opacity-50"
-      )}
-    />
   );
 }
 
@@ -1306,7 +1241,11 @@ function InvoicesTab({
             {invoices.map((inv) => (
               <TR key={inv.id}>
                 <TD>
-                  <Badge tone={inv.type === "EXPENSE" ? "destructive" : "success"}>
+                  <Badge
+                    tone={
+                      inv.type === "EXPENSE" ? "destructive" : inv.type === "INTERNAL" ? "info" : "success"
+                    }
+                  >
                     {INVOICE_TYPE_LABELS[inv.type ?? "INCOME"]}
                   </Badge>
                 </TD>
