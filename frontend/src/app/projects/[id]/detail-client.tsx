@@ -40,6 +40,7 @@ import {
   updateBudgetItem,
   deleteBudgetItem,
   importBudgetItemsForProject,
+  upsertMonthlyFinancialManual,
   addInvoice,
   updateInvoice,
   updateInvoiceStatus,
@@ -1143,11 +1144,18 @@ function BudgetImportDialog({
 function MonthlyTab({
   project,
   financials,
+  isSuperAdmin,
 }: {
   project: ProjectDTO;
   financials: FinancialDTO[];
+  isSuperAdmin: boolean;
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<{ expense: number[]; income: number[]; internal: number[] } | null>(
+    null
+  );
 
   const byMonth = useMemo(() => {
     const map = new Map<number, FinancialDTO>();
@@ -1167,24 +1175,81 @@ function MonthlyTab({
     internal: internalByMonth.reduce((s, v) => s + v, 0),
   };
 
+  function startEdit() {
+    setDraft({ expense: [...expenseByMonth], income: [...incomeByMonth], internal: [...internalByMonth] });
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setDraft(null);
+    setEditing(false);
+  }
+
+  async function saveEdit() {
+    if (!draft) return;
+    setSaving(true);
+    await Promise.all(
+      Array.from({ length: 12 }, (_, i) => i).map((i) =>
+        upsertMonthlyFinancialManual({
+          projectId: project.id,
+          year,
+          month: i + 1,
+          expense: draft.expense[i] || 0,
+          income: draft.income[i] || 0,
+          internalIncome: draft.internal[i] || 0,
+        })
+      )
+    );
+    setSaving(false);
+    setDraft(null);
+    setEditing(false);
+  }
+
+  function updateDraft(row: "expense" | "income" | "internal", i: number, value: number) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [row]: [...prev[row]] };
+      next[row][i] = value;
+      return next;
+    });
+  }
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Aylık Gelir / Gider / İç Kaynak Geliri — {year}</CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)}>
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)} disabled={editing}>
             ← {year - 1}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setYear((y) => y + 1)}>
+          <Button variant="outline" size="sm" onClick={() => setYear((y) => y + 1)} disabled={editing}>
             {year + 1} →
           </Button>
+          {isSuperAdmin &&
+            (editing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={cancelEdit} disabled={saving}>
+                  Vazgeç
+                </Button>
+                <Button size="sm" onClick={saveEdit} disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />} Kaydet
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={startEdit}>
+                <Pencil className="h-4 w-4" /> Düzenle
+              </Button>
+            ))}
         </div>
       </CardHeader>
       <CardContent>
         <div className="mb-3 rounded-lg border border-primary/20 bg-accent/50 px-4 py-2 text-xs text-muted-foreground">
           <span className="font-medium text-foreground">Gider, Gelir ve İç Kaynak Geliri</span>,
           Faturalar sekmesinde girilen faturaların tipine (Gider/Gelir/İç Kaynak Geliri) ve kesim
-          tarihine göre otomatik hesaplanır — burada elle değiştirilemez.
+          tarihine göre otomatik hesaplanır.{" "}
+          {isSuperAdmin
+            ? "Gerekirse yalnızca admin, \"Düzenle\" ile bu değerleri elle revize edebilir."
+            : "Bu tablo yalnızca admin tarafından elle düzenlenebilir."}
         </div>
         <div className="mb-4 grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-destructive/10 px-4 py-3">
@@ -1213,37 +1278,78 @@ function MonthlyTab({
             </TR>
           </THead>
           <TBody>
-            <TR>
-              <TD className="font-medium text-destructive">Gider</TD>
-              {expenseByMonth.map((v, i) => (
-                <TD key={i} className="text-center tabular-nums text-muted-foreground">
-                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
-                </TD>
-              ))}
-              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.expense)}</TD>
-            </TR>
-            <TR>
-              <TD className="font-medium text-success">Gelir</TD>
-              {incomeByMonth.map((v, i) => (
-                <TD key={i} className="text-center tabular-nums text-muted-foreground">
-                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
-                </TD>
-              ))}
-              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.income)}</TD>
-            </TR>
-            <TR>
-              <TD className="font-medium text-primary">İç Kaynak Geliri</TD>
-              {internalByMonth.map((v, i) => (
-                <TD key={i} className="text-center tabular-nums text-muted-foreground">
-                  {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
-                </TD>
-              ))}
-              <TD className="text-right font-semibold tabular-nums">{formatMoney(totals.internal)}</TD>
-            </TR>
+            <MonthlyFinancialRow
+              label="Gider"
+              labelClassName="text-destructive"
+              values={editing && draft ? draft.expense : expenseByMonth}
+              editing={editing}
+              onChange={(i, v) => updateDraft("expense", i, v)}
+              total={
+                editing && draft ? draft.expense.reduce((s, v) => s + v, 0) : totals.expense
+              }
+            />
+            <MonthlyFinancialRow
+              label="Gelir"
+              labelClassName="text-success"
+              values={editing && draft ? draft.income : incomeByMonth}
+              editing={editing}
+              onChange={(i, v) => updateDraft("income", i, v)}
+              total={editing && draft ? draft.income.reduce((s, v) => s + v, 0) : totals.income}
+            />
+            <MonthlyFinancialRow
+              label="İç Kaynak Geliri"
+              labelClassName="text-primary"
+              values={editing && draft ? draft.internal : internalByMonth}
+              editing={editing}
+              onChange={(i, v) => updateDraft("internal", i, v)}
+              total={
+                editing && draft ? draft.internal.reduce((s, v) => s + v, 0) : totals.internal
+              }
+            />
           </TBody>
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+function MonthlyFinancialRow({
+  label,
+  labelClassName,
+  values,
+  editing,
+  onChange,
+  total,
+}: {
+  label: string;
+  labelClassName: string;
+  values: number[];
+  editing: boolean;
+  onChange: (index: number, value: number) => void;
+  total: number;
+}) {
+  return (
+    <TR>
+      <TD className={cn("font-medium", labelClassName)}>{label}</TD>
+      {values.map((v, i) =>
+        editing ? (
+          <TD key={i} className="p-1 text-center">
+            <input
+              type="number"
+              step="0.01"
+              value={v || ""}
+              onChange={(e) => onChange(i, Number(e.target.value))}
+              className="h-8 w-full rounded border bg-card text-center text-sm tabular-nums outline-none focus:ring-2 focus:ring-ring"
+            />
+          </TD>
+        ) : (
+          <TD key={i} className="text-center tabular-nums text-muted-foreground">
+            {v > 0 ? formatMoney(v, "TRY", 0) : "·"}
+          </TD>
+        )
+      )}
+      <TD className="text-right font-semibold tabular-nums">{formatMoney(total)}</TD>
+    </TR>
   );
 }
 

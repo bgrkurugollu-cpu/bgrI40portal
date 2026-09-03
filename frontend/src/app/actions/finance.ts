@@ -48,6 +48,38 @@ async function recomputeMonthlyFinancialFromInvoices(projectId: string, year: nu
   revalidatePath("/");
 }
 
+// Aylık Finans normalde faturalardan otomatik hesaplanır (bkz. yukarısı) ve
+// kimse elle değiştiremez. Ancak yalnızca gerçek ADMIN, gerektiğinde bir ayın
+// Gider/Gelir/İç Kaynak Geliri değerlerini elle düzeltebilir (ör. faturaya
+// yansımayan bir mutabakat farkı).
+export async function upsertMonthlyFinancialManual(input: {
+  projectId: string;
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  internalIncome: number;
+}) {
+  await requireAdmin();
+
+  await prisma.monthlyFinancial.upsert({
+    where: { projectId_year_month: { projectId: input.projectId, year: input.year, month: input.month } },
+    create: {
+      projectId: input.projectId,
+      year: input.year,
+      month: input.month,
+      income: input.income,
+      expense: input.expense,
+      internalIncome: input.internalIncome,
+      currency: "TRY",
+    },
+    update: { income: input.income, expense: input.expense, internalIncome: input.internalIncome },
+  });
+  revalidatePath(`/projects/${input.projectId}`);
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
 export async function addBudgetItem(input: {
   projectId: string;
   year: number;
