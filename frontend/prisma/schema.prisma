@@ -103,7 +103,6 @@ model Project {
   status       ProjectStatus @default(PLANNED)
   description  String?
   jiraLink     String? // JIRA proje/epic linki — proje detay sayfasında başlığın altında gösterilir
-  paymentPlanNote String? // Ödeme Planı — serbest metin açıklama (ayrı bir modül/tablo yerine proje bilgisi olarak tutulur)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

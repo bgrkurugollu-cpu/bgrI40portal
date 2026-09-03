@@ -87,7 +87,6 @@ export default async function ProjectDetailPage({
     status: project.status,
     description: project.description,
     jiraLink: project.jiraLink,
-    paymentPlanNote: project.paymentPlanNote,
   };
 
   const logs: LogDTO[] = project.logs.map((l) => ({

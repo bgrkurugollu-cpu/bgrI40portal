@@ -37,6 +37,7 @@ import {
 } from "@/app/actions/projects";
 import {
   addBudgetItem,
+  updateBudgetItem,
   deleteBudgetItem,
   importBudgetItemsForProject,
   addInvoice,
@@ -226,14 +227,6 @@ export function ProjectDetailClient(props: {
             )}
             <Badge tone="muted">Gerçekleşme: %{project.probability}</Badge>
           </div>
-          {project.paymentPlanNote && (
-            <div className="mt-3 max-w-2xl rounded-lg border bg-accent/30 px-3 py-2 text-sm">
-              <span className="font-medium text-foreground">Ödeme Planı: </span>
-              <span className="text-muted-foreground whitespace-pre-line">
-                {project.paymentPlanNote}
-              </span>
-            </div>
-          )}
         </div>
         <Button variant="outline" onClick={() => setEditing(true)}>
           <Pencil className="h-4 w-4" /> Düzenle
@@ -242,12 +235,16 @@ export function ProjectDetailClient(props: {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
-        <StatCard label="Proje Cirosu" value={formatMoney(ciro)} />
         <StatCard label="Bütçe Kırılımı (TL karşılığı)" value={formatMoney(budgetTotal)} />
         <StatCard
           label="Karlılık"
           value={`%${Math.round(profitability * 100)}`}
-          sub="(Toplam Gelir − Gider) / Toplam Gelir"
+          sub={
+            profitability < 0.05
+              ? "Uyarı: %5'in altında! (Toplam Gelir − Gider) / Toplam Gelir"
+              : "(Toplam Gelir − Gider) / Toplam Gelir"
+          }
+          warn={profitability < 0.05}
         />
         <StatCard label="Planlanan Efor" value={`${plannedTotal.toFixed(0)} adam-gün`} />
         <StatCard
@@ -322,15 +319,34 @@ export function ProjectDetailClient(props: {
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function StatCard({
+  label,
+  value,
+  sub,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  warn?: boolean;
+}) {
   return (
-    <Card>
+    <Card className={cn(warn && "animate-pulse border-destructive bg-destructive/10")}>
       <CardContent className="p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div
+          className={cn(
+            "text-xs font-medium uppercase tracking-wide text-muted-foreground",
+            warn && "text-destructive"
+          )}
+        >
           {label}
         </div>
-        <div className="mt-1 text-lg font-bold">{value}</div>
-        {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
+        <div className={cn("mt-1 text-lg font-bold", warn && "text-destructive")}>{value}</div>
+        {sub && (
+          <div className={cn("mt-0.5 text-xs text-muted-foreground", warn && "text-destructive")}>
+            {sub}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -580,9 +596,9 @@ function BudgetTab({
   budgetItems: BudgetItemDTO[];
   isSuperAdmin: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<BudgetItemDTO | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const years = useMemo(
     () => Array.from(new Set(budgetItems.map((b) => b.year))).sort((a, b) => a - b),
     [budgetItems]
@@ -615,39 +631,14 @@ function BudgetTab({
       );
   }, [yearItems]);
 
-  // Form önizlemesi: Toplam Maliyet = Miktar × Birim Fiyat; TF Fiyatı = Toplam Maliyet × (1 + TF%/100).
-  const [formQuantity, setFormQuantity] = useState(1);
-  const [formUnitPrice, setFormUnitPrice] = useState(0);
-  const [formTransferFeePercent, setFormTransferFeePercent] = useState(0);
-  const [formCurrency, setFormCurrency] = useState<CurrencyCode>("TRY");
-  const formAmount = formQuantity * formUnitPrice;
-  const formTransferPrice = formAmount * (1 + formTransferFeePercent / 100);
+  function openAdd() {
+    setEditingItem(null);
+    setDialogOpen(true);
+  }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    await addBudgetItem({
-      projectId: project.id,
-      year: Number(fd.get("year")) || year,
-      expenseType: (fd.get("expenseType") as BudgetExpenseType) || "CAPEX",
-      category: String(fd.get("category")),
-      description: String(fd.get("description")),
-      supplier: (fd.get("supplier") as string) || undefined,
-      unit: (fd.get("unit") as string) || undefined,
-      quantity: Number(fd.get("quantity")),
-      unitPrice: Number(fd.get("unitPrice")),
-      currency: fd.get("currency") as CurrencyCode,
-      note: (fd.get("note") as string) || undefined,
-      transferFeePercent: fd.get("transferFeePercent")
-        ? Number(fd.get("transferFeePercent"))
-        : undefined,
-    });
-    setLoading(false);
-    setOpen(false);
-    setFormQuantity(1);
-    setFormUnitPrice(0);
-    setFormTransferFeePercent(0);
+  function openEdit(item: BudgetItemDTO) {
+    setEditingItem(item);
+    setDialogOpen(true);
   }
 
   return (
@@ -677,7 +668,7 @@ function BudgetTab({
               <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
                 <Upload className="h-4 w-4" /> İçe Aktar
               </Button>
-              <Button size="sm" onClick={() => setOpen(true)}>
+              <Button size="sm" onClick={openAdd}>
                 <Plus className="h-4 w-4" /> Kalem Ekle
               </Button>
             </>
@@ -740,14 +731,19 @@ function BudgetTab({
                 </TD>
                 <TD>
                   {isSuperAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Sil"
-                      onClick={() => deleteBudgetItem(b.id, project.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" aria-label="Düzenle" onClick={() => openEdit(b)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Sil"
+                        onClick={() => deleteBudgetItem(b.id, project.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   )}
                 </TD>
               </TR>
@@ -798,106 +794,18 @@ function BudgetTab({
         )}
       </CardContent>
 
-      <Dialog open={open} onClose={() => setOpen(false)} title="Bütçe Kalemi Ekle">
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Yıl</Label>
-              <Input name="year" type="number" min={2000} max={2100} defaultValue={year} required />
-            </div>
-            <div>
-              <Label>Tip</Label>
-              <Select name="expenseType" defaultValue="CAPEX">
-                <option value="CAPEX">CAPEX</option>
-                <option value="OPEX">OPEX</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Kategori</Label>
-              <Input name="category" placeholder="Donanım / Yazılım / İşçilik" required />
-            </div>
-            <div className="col-span-2">
-              <Label>Açıklama</Label>
-              <Input name="description" required />
-            </div>
-            <div>
-              <Label>Tedarikçi</Label>
-              <Input name="supplier" placeholder="Opsiyonel" />
-            </div>
-            <div>
-              <Label>Birim</Label>
-              <Input name="unit" placeholder="ad, adet, gün... (opsiyonel)" />
-            </div>
-            <div>
-              <Label>Miktar</Label>
-              <Input
-                name="quantity"
-                type="number"
-                step="0.01"
-                min={0}
-                value={formQuantity}
-                onChange={(e) => setFormQuantity(Number(e.target.value))}
-                required
-              />
-            </div>
-            <div>
-              <Label>Birim Fiyat</Label>
-              <Input
-                name="unitPrice"
-                type="number"
-                step="0.01"
-                min={0}
-                value={formUnitPrice}
-                onChange={(e) => setFormUnitPrice(Number(e.target.value))}
-                required
-              />
-            </div>
-            <div>
-              <Label>Para Birimi</Label>
-              <CurrencySelect
-                name="currency"
-                value={formCurrency}
-                onChange={(e) => setFormCurrency(e.target.value as CurrencyCode)}
-              />
-            </div>
-            <div>
-              <Label>Toplam Maliyet (KDV Hariç)</Label>
-              <Input value={formatMoney(formAmount, formCurrency)} readOnly tabIndex={-1} className="bg-muted text-muted-foreground" />
-            </div>
-            <div>
-              <Label>TF %</Label>
-              <Input
-                name="transferFeePercent"
-                type="number"
-                step="0.01"
-                min={0}
-                value={formTransferFeePercent}
-                onChange={(e) => setFormTransferFeePercent(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label>TF (Transfer Fiyatı)</Label>
-              <Input
-                value={formatMoney(formTransferPrice, formCurrency)}
-                readOnly
-                tabIndex={-1}
-                className="bg-muted text-muted-foreground"
-              />
-            </div>
-            <div className="col-span-2">
-              <Label>Not</Label>
-              <Input name="note" placeholder="Opsiyonel" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Vazgeç
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />} Ekle
-            </Button>
-          </div>
-        </form>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={editingItem ? "Bütçe Kalemini Düzenle" : "Bütçe Kalemi Ekle"}
+      >
+        <BudgetItemForm
+          key={editingItem?.id ?? "new"}
+          projectId={project.id}
+          year={year}
+          item={editingItem}
+          onDone={() => setDialogOpen(false)}
+        />
       </Dialog>
 
       <BudgetImportDialog
@@ -907,6 +815,155 @@ function BudgetTab({
         defaultYear={year}
       />
     </Card>
+  );
+}
+
+function BudgetItemForm({
+  projectId,
+  year,
+  item,
+  onDone,
+}: {
+  projectId: string;
+  year: number;
+  item: BudgetItemDTO | null;
+  onDone: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [quantity, setQuantity] = useState(item?.quantity ?? 1);
+  const [unitPrice, setUnitPrice] = useState(item?.unitPrice ?? 0);
+  const [transferFeePercent, setTransferFeePercent] = useState(item?.transferFeePercent ?? 0);
+  const [currency, setCurrency] = useState<CurrencyCode>(item?.currency ?? "TRY");
+  const amount = quantity * unitPrice;
+  const transferPrice = amount * (1 + transferFeePercent / 100);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const fd = new FormData(e.currentTarget);
+    const input = {
+      year: Number(fd.get("year")) || year,
+      expenseType: (fd.get("expenseType") as BudgetExpenseType) || "CAPEX",
+      category: String(fd.get("category")),
+      description: String(fd.get("description")),
+      supplier: (fd.get("supplier") as string) || undefined,
+      unit: (fd.get("unit") as string) || undefined,
+      quantity,
+      unitPrice,
+      currency,
+      note: (fd.get("note") as string) || undefined,
+      transferFeePercent: transferFeePercent || undefined,
+    };
+    if (item) {
+      await updateBudgetItem(item.id, input);
+    } else {
+      await addBudgetItem({ projectId, ...input });
+    }
+    setLoading(false);
+    onDone();
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Yıl</Label>
+          <Input name="year" type="number" min={2000} max={2100} defaultValue={item?.year ?? year} required />
+        </div>
+        <div>
+          <Label>Tip</Label>
+          <Select name="expenseType" defaultValue={item?.expenseType ?? "CAPEX"}>
+            <option value="CAPEX">CAPEX</option>
+            <option value="OPEX">OPEX</option>
+          </Select>
+        </div>
+        <div>
+          <Label>Kategori</Label>
+          <Input
+            name="category"
+            defaultValue={item?.category}
+            placeholder="Donanım / Yazılım / İşçilik"
+            required
+          />
+        </div>
+        <div className="col-span-2">
+          <Label>Açıklama</Label>
+          <Input name="description" defaultValue={item?.description} required />
+        </div>
+        <div>
+          <Label>Tedarikçi</Label>
+          <Input name="supplier" defaultValue={item?.supplier ?? ""} placeholder="Opsiyonel" />
+        </div>
+        <div>
+          <Label>Birim</Label>
+          <Input name="unit" defaultValue={item?.unit ?? ""} placeholder="ad, adet, gün... (opsiyonel)" />
+        </div>
+        <div>
+          <Label>Miktar</Label>
+          <Input
+            name="quantity"
+            type="number"
+            step="0.01"
+            min={0}
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            required
+          />
+        </div>
+        <div>
+          <Label>Birim Fiyat</Label>
+          <Input
+            name="unitPrice"
+            type="number"
+            step="0.01"
+            min={0}
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(Number(e.target.value))}
+            required
+          />
+        </div>
+        <div>
+          <Label>Para Birimi</Label>
+          <CurrencySelect name="currency" value={currency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)} />
+        </div>
+        <div>
+          <Label>Toplam Maliyet (KDV Hariç)</Label>
+          <Input value={formatMoney(amount, currency)} readOnly tabIndex={-1} className="bg-muted text-muted-foreground" />
+        </div>
+        <div>
+          <Label>TF %</Label>
+          <Input
+            name="transferFeePercent"
+            type="number"
+            step="0.01"
+            min={0}
+            value={transferFeePercent}
+            onChange={(e) => setTransferFeePercent(Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>TF (Transfer Fiyatı)</Label>
+          <Input
+            value={formatMoney(transferPrice, currency)}
+            readOnly
+            tabIndex={-1}
+            className="bg-muted text-muted-foreground"
+          />
+        </div>
+        <div className="col-span-2">
+          <Label>Not</Label>
+          <Input name="note" defaultValue={item?.note ?? ""} placeholder="Opsiyonel" />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onDone}>
+          Vazgeç
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />} {item ? "Kaydet" : "Ekle"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -1637,7 +1694,6 @@ const FIELD_LABELS: Record<string, string> = {
   status: "Durum",
   description: "Açıklama",
   jiraLink: "JIRA Linki",
-  paymentPlanNote: "Ödeme Planı",
   kind: "Tür",
   oluşturma: "Oluşturma",
 };

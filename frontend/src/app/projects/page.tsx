@@ -33,7 +33,6 @@ export default async function ProjectsPage() {
     status: p.status,
     description: p.description,
     jiraLink: p.jiraLink,
-    paymentPlanNote: p.paymentPlanNote,
   }));
 
   return (

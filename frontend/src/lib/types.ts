@@ -32,7 +32,6 @@ export type ProjectDTO = {
   status: string;
   description: string | null;
   jiraLink: string | null;
-  paymentPlanNote: string | null;
 };
 
 export type MemberDTO = { id: string; name: string; title: string | null };

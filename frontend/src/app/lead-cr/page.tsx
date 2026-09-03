@@ -36,7 +36,6 @@ export default async function LeadCrPage() {
     status: p.status,
     description: p.description,
     jiraLink: p.jiraLink,
-    paymentPlanNote: p.paymentPlanNote,
   }));
 
   return (

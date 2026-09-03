@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { createProject, updateProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
@@ -58,7 +57,6 @@ export function ProjectForm({
       status: fd.get("status") as ProjectDTO["status"],
       description: (fd.get("description") as string) || null,
       jiraLink: (fd.get("jiraLink") as string) || null,
-      paymentPlanNote: (fd.get("paymentPlanNote") as string) || null,
     };
     try {
       if (project) {
@@ -207,16 +205,6 @@ export function ProjectForm({
             type="url"
             defaultValue={project?.jiraLink ?? ""}
             placeholder="https://şirket.atlassian.net/browse/PRJ-123"
-          />
-        </div>
-        <div className="col-span-2">
-          <Label htmlFor="paymentPlanNote">Ödeme Planı</Label>
-          <Textarea
-            id="paymentPlanNote"
-            name="paymentPlanNote"
-            defaultValue={project?.paymentPlanNote ?? ""}
-            placeholder="Ödeme koşulları/planı açıklaması (serbest metin)"
-            rows={3}
           />
         </div>
         <div className="col-span-2">

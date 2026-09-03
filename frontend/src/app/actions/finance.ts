@@ -74,6 +74,34 @@ export async function addBudgetItem(input: {
   revalidatePath(`/projects/${input.projectId}`);
 }
 
+export async function updateBudgetItem(
+  id: string,
+  input: {
+    year: number;
+    expenseType: BudgetExpenseType;
+    category: string;
+    description: string;
+    supplier?: string;
+    unit?: string;
+    quantity: number;
+    unitPrice: number;
+    currency: Currency;
+    note?: string;
+    transferFeePercent?: number;
+  }
+) {
+  await requireAdmin();
+
+  const amount = input.quantity * input.unitPrice;
+  const transferPrice = amount * (1 + (input.transferFeePercent ?? 0) / 100);
+
+  const item = await prisma.budgetItem.update({
+    where: { id },
+    data: { ...input, amount, transferPrice },
+  });
+  revalidatePath(`/projects/${item.projectId}`);
+}
+
 export async function deleteBudgetItem(id: string, projectId: string) {
   await requireAdmin();
   await prisma.budgetItem.delete({ where: { id } });
