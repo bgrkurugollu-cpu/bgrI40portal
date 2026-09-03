@@ -162,7 +162,9 @@ export function ProjectsClient({
                 className={
                   p.status === "COMPLETED"
                     ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
-                    : undefined
+                    : p.status === "CANCELLED"
+                      ? "bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50"
+                      : undefined
                 }
               >
                 <TD className="font-mono text-xs font-bold text-muted-foreground">
