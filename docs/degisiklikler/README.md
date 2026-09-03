@@ -9,6 +9,7 @@ Yeni kayıt eklemek için: `./yeni-kayit.sh "kisa-baslik"` (bkz.
 
 | Tarih | Commit | Özet | Şema | Detay |
 |---|---|---|---|---|
+| 2026-09-03 | `9bafa01` | Kalıcı proje dokümantasyonu ve değişiklik günlüğü kuruldu: docs/ altında onboarding, mimari, deployment, veri modeli, çalışma akışı ve modül referansı; tüm commit geçmişi degisiklikler/ altında kayıt altına alındı | — | [↗](2026-09-03-proje-dokumantasyon-sistemi.md) |
 | 2026-09-03 | `9740e48` | Aylık Finans'a admin-only "Düzenle" modu (tüm ayları toplu revize) | — | [↗](2026-09-03-aylik-finans-admin-duzenleme.md) |
 | 2026-09-03 | `f6d7dbc` | İptal statüsündeki satırlar açık kırmızı arkaplanla vurgulandı | — | — |
 | 2026-09-03 | `eb9e5e7` | Ödeme Planı metin alanı kaldırıldı; Bütçe Kırılımı'na admin-only Düzenle; Proje Cirosu kartı kaldırıldı; Karlılık <%5 kırmızı yanıp sönme | ✅ | [↗](2026-09-03-butce-duzenleme-karlilik-uyarisi.md) |
