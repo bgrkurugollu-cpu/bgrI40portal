@@ -9,6 +9,7 @@ Yeni kayıt eklemek için: `./yeni-kayit.sh "kisa-baslik"` (bkz.
 
 | Tarih | Commit | Özet | Şema | Detay |
 |---|---|---|---|---|
+| 2026-09-04 | `f617a85` | Lead/CR ekranında yeni kayıt için CR türü ve Proje seçeneği kaldırıldı (yalnızca Lead açılabiliyor); Lead kayıtlarında Proje Kodu artık zorunlu değil (boş bırakılırsa otomatik kod atanır), Projeler tarafında zorunluluk aynı kalıyor | — | [↗](2026-09-04-lead-cr-cr-kaldirma-proje-kodu-opsiyonel.md) |
 | 2026-09-04 | `0f57121` | Fatura Ekle formuna 'Otomatik %5 Gelir Ekle' butonu eklendi (Gider seçiliyken): giderin %5'i tutarında, aynı tarihli, EBA No'su sabit '1' olan bir gelir faturasını otomatik oluşturur | — | [↗](2026-09-04-otomatik-yuzde5-gelir-faturasi.md) |
 | 2026-09-03 | `8ca6785` | Projeler sayfasına PRJ/DEMAND/AUTO kod filtreleri, Lead/CR sayfasına Lead/CR tür filtreleri eklendi (arama kutusunun sağında hızlı seçim kutuları) | — | [↗](2026-09-03-prj-demand-auto-lead-cr-filtreleri.md) |
 | 2026-09-03 | `9bafa01` | Kalıcı proje dokümantasyonu ve değişiklik günlüğü kuruldu: docs/ altında onboarding, mimari, deployment, veri modeli, çalışma akışı ve modül referansı; tüm commit geçmişi degisiklikler/ altında kayıt altına alındı | — | [↗](2026-09-03-proje-dokumantasyon-sistemi.md) |
