@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -42,6 +42,7 @@ import {
   importBudgetItemsForProject,
   upsertMonthlyFinancialManual,
   addInvoice,
+  addInvoiceWithAutoIncome,
   updateInvoice,
   updateInvoiceStatus,
   deleteInvoice,
@@ -1366,24 +1367,25 @@ function InvoicesTab({
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasExchangeRateDiff, setHasExchangeRateDiff] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<string>("INCOME");
+  const formRef = useRef<HTMLFormElement>(null);
 
   function openAddDialog() {
     setEditingInvoice(null);
     setHasExchangeRateDiff(false);
+    setInvoiceType("INCOME");
     setOpen(true);
   }
 
   function openEditDialog(inv: InvoiceDTO) {
     setEditingInvoice(inv);
     setHasExchangeRateDiff(inv.hasExchangeRateDiff);
+    setInvoiceType(inv.type ?? "INCOME");
     setOpen(true);
   }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const input = {
+  function readForm(fd: FormData) {
+    return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: fd.get("type") as any,
       description: String(fd.get("description")),
@@ -1399,11 +1401,30 @@ function InvoicesTab({
         ? String(fd.get("exchangeRateDiffEbaNumber") ?? "")
         : undefined,
     };
+  }
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const input = readForm(new FormData(e.currentTarget));
     if (editingInvoice) {
       await updateInvoice(editingInvoice.id, input);
     } else {
       await addInvoice({ projectId: project.id, ...input });
     }
+    setLoading(false);
+    setOpen(false);
+    setEditingInvoice(null);
+  }
+
+  // Gider faturasını, önden gelir kesilmeyen "al-sat" işleri için giderin %5'i
+  // tutarında sabit EBA No "1" olan bir gelir faturasıyla birlikte oluşturur.
+  async function onAddWithAutoIncome() {
+    const form = formRef.current;
+    if (!form || !form.reportValidity()) return;
+    setLoading(true);
+    const input = readForm(new FormData(form));
+    await addInvoiceWithAutoIncome({ projectId: project.id, ...input });
     setLoading(false);
     setOpen(false);
     setEditingInvoice(null);
@@ -1524,11 +1545,20 @@ function InvoicesTab({
         }}
         title={editingInvoice ? "Fatura Düzenle" : "Fatura Ekle"}
       >
-        <form key={editingInvoice?.id ?? "new"} onSubmit={onSubmit} className="space-y-4">
+        <form
+          key={editingInvoice?.id ?? "new"}
+          ref={formRef}
+          onSubmit={onSubmit}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Tip</Label>
-              <Select name="type" defaultValue={editingInvoice?.type ?? "INCOME"}>
+              <Select
+                name="type"
+                defaultValue={editingInvoice?.type ?? "INCOME"}
+                onChange={(e) => setInvoiceType(e.target.value)}
+              >
                 {Object.entries(INVOICE_TYPE_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
@@ -1613,6 +1643,26 @@ function InvoicesTab({
               </div>
             )}
           </div>
+
+          {!editingInvoice && invoiceType === "EXPENSE" && (
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Bu gider için önden gelir faturası kesmiyorsanız (al-sat), giderin %5&apos;i
+                tutarında, aynı tarihli/aynı aylık, EBA No&apos;su sabit &quot;1&quot; olan bir
+                gelir faturasını otomatik oluşturabilirsiniz.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                onClick={onAddWithAutoIncome}
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />} Otomatik %5 Gelir Ekle
+              </Button>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button
               type="button"

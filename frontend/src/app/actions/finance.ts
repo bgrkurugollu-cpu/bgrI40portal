@@ -211,6 +211,64 @@ export async function addInvoice(input: {
   revalidatePath("/finance");
 }
 
+// Al-sat mantığıyla önden gelir faturası kesilmeyen giderler için: gideri
+// oluştururken aynı anda, giderin %5'i tutarında, aynı tarihli/aynı aylık,
+// EBA No'su hep sabit "1" olan bir gelir faturası da otomatik yazılır.
+// EBA No sabit tutulur ki bu otomatik gelirler gerçek faturalarla karışmasın.
+const AUTO_INCOME_EBA_NUMBER = "1";
+const AUTO_INCOME_MARKUP = 0.05;
+
+export async function addInvoiceWithAutoIncome(input: {
+  projectId: string;
+  description: string;
+  amount: number;
+  currency: Currency;
+  issueDate: string;
+  status: InvoiceStatus;
+  ebaNumber: string;
+  poNumber?: string;
+  hasExchangeRateDiff?: boolean;
+  exchangeRateDiffEbaNumber?: string;
+}) {
+  await requirePageEdit("projects");
+
+  const issueDate = new Date(input.issueDate);
+  const expense = await prisma.invoice.create({
+    data: {
+      projectId: input.projectId,
+      type: "EXPENSE",
+      description: input.description,
+      amount: input.amount,
+      currency: input.currency,
+      issueDate,
+      status: input.status,
+      ebaNumber: input.ebaNumber,
+      poNumber: input.poNumber,
+      hasExchangeRateDiff: input.hasExchangeRateDiff ?? false,
+      exchangeRateDiffEbaNumber: input.exchangeRateDiffEbaNumber,
+    },
+  });
+
+  const autoIncomeAmount = Math.round(input.amount * AUTO_INCOME_MARKUP * 100) / 100;
+  await prisma.invoice.create({
+    data: {
+      projectId: input.projectId,
+      type: "INCOME",
+      description: `Otomatik %5 gelir — ${input.description}`,
+      amount: autoIncomeAmount,
+      currency: input.currency,
+      issueDate,
+      status: input.status,
+      ebaNumber: AUTO_INCOME_EBA_NUMBER,
+    },
+  });
+
+  const { year, month } = await monthOf(issueDate);
+  await recomputeMonthlyFinancialFromInvoices(input.projectId, year, month);
+  revalidatePath(`/projects/${input.projectId}`);
+  revalidatePath("/finance");
+}
+
 export async function updateInvoice(
   id: string,
   input: {
