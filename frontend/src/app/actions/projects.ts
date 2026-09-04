@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -9,6 +10,12 @@ import type { Priority, ProjectKind, ProjectStatus, RiskLevel } from "@prisma/cl
 // "Proje" ve "Lead/CR" aynı modeli paylaşır ama ayrı menü/izinlere sahiptir.
 function pageForKind(kind: ProjectKind): "projects" | "leadcr" {
   return kind === "PROJECT" ? "projects" : "leadcr";
+}
+
+// Lead kayıtlarında Proje Kodu zorunlu değildir; boş bırakılırsa DB'deki
+// zorunlu+unique alanı doldurmak için otomatik, çakışmayan bir kod üretilir.
+function autoLeadCode() {
+  return `LEAD-${randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
 type ProjectInput = {
@@ -32,6 +39,12 @@ export async function createProject(input: ProjectInput) {
   const session = await requirePageEdit(pageForKind(input.kind));
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
+  const trimmedCode = input.projectCode.trim();
+  if (!trimmedCode && input.kind !== "LEAD") {
+    throw new Error("Proje kodu zorunludur.");
+  }
+  const projectCode = trimmedCode || autoLeadCode();
+
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
   const validUserId = user ? user.id : null;
 
@@ -39,6 +52,7 @@ export async function createProject(input: ProjectInput) {
   const project = await prisma.project.create({
     data: {
       ...rest,
+      projectCode,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
       factories: { connect: factoryIds.map((id) => ({ id })) },
@@ -70,12 +84,19 @@ export async function updateProject(id: string, input: ProjectInput) {
 
   if (input.factoryIds.length === 0) throw new Error("En az bir fabrika seçilmelidir.");
 
+  const trimmedCode = input.projectCode.trim();
+  if (!trimmedCode && input.kind !== "LEAD") {
+    throw new Error("Proje kodu zorunludur.");
+  }
+  const projectCode = trimmedCode || autoLeadCode();
+
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
   const validUserId = user ? user.id : null;
 
   const { factoryIds, ...scalarInput } = input;
   const next = {
     ...scalarInput,
+    projectCode,
     startDate: input.startDate ? new Date(input.startDate) : null,
     endDate: input.endDate ? new Date(input.endDate) : null,
   };

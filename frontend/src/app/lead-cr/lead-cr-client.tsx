@@ -15,6 +15,8 @@ import { deleteProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
 import { formatMoney, formatDate, STATUS_LABELS } from "@/lib/utils";
 
+// CR artık bir işlev olarak sunulmuyor; sadece geçmişte oluşturulmuş kayıtlar
+// varsa görünürlüğü korumak için etiketi burada tutuluyor.
 const KIND_LABELS: Record<string, string> = { LEAD: "Lead", CR: "CR" };
 const kindTone = (k: string) => (k === "CR" ? "warning" : "info");
 
@@ -139,7 +141,7 @@ export function LeadCrClient({
           />
         </div>
         <div className="flex items-center gap-3">
-          {(["LEAD", "CR"] as const).map((kind) => (
+          {(["LEAD"] as const).map((kind) => (
             <label key={kind} className="flex items-center gap-1.5 text-sm">
               <input
                 type="checkbox"
@@ -248,7 +250,12 @@ export function LeadCrClient({
       </Card>
 
       <Dialog open={creating} onClose={() => setCreating(false)} title="Yeni Lead / CR" wide>
-        <ProjectForm factories={factories} defaultKind="LEAD" onDone={() => setCreating(false)} />
+        <ProjectForm
+          factories={factories}
+          defaultKind="LEAD"
+          allowedKinds={["LEAD"]}
+          onDone={() => setCreating(false)}
+        />
       </Dialog>
       <Dialog open={!!editing} onClose={() => setEditing(null)} title="Lead / CR Düzenle" wide>
         {editing && (
@@ -256,6 +263,7 @@ export function LeadCrClient({
             factories={factories}
             project={editing}
             defaultKind="LEAD"
+            allowedKinds={["LEAD"]}
             onDone={() => setEditing(null)}
           />
         )}

@@ -11,7 +11,9 @@ import { createProject, updateProject } from "@/app/actions/projects";
 import type { FactoryDTO, ProjectDTO } from "@/lib/types";
 import { RISK_LABELS, STATUS_LABELS } from "@/lib/utils";
 
-const KIND_LABELS: Record<ProjectDTO["kind"], string> = {
+// CR artık bir işlev olarak sunulmuyor (yeni kayıt açılamaz); eski CR
+// kayıtları düzenlenirken görünür kalması için ayrıca ele alınır (bkz. aşağı).
+const KIND_LABELS: Partial<Record<ProjectDTO["kind"], string>> = {
   PROJECT: "Proje",
   LEAD: "Lead",
   CR: "CR",
@@ -21,17 +23,27 @@ export function ProjectForm({
   factories,
   project,
   defaultKind = "PROJECT",
+  allowedKinds = ["PROJECT", "LEAD"],
   onDone,
 }: {
   factories: FactoryDTO[];
   project?: ProjectDTO;
   defaultKind?: ProjectDTO["kind"];
+  // Bu formun hangi bağlamda açıldığına göre (Projeler / Lead) seçilebilecek
+  // türler. Eski bir CR kaydı düzenlenirken, listede olmasa bile mevcut değeri
+  // korumak için ayrıca eklenir — böylece sessizce başka bir türe kaymaz.
+  allowedKinds?: ProjectDTO["kind"][];
   onDone: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [factoryIds, setFactoryIds] = useState<string[]>(project?.factoryIds ?? []);
   const [factoryError, setFactoryError] = useState(false);
   const [kind, setKind] = useState<ProjectDTO["kind"]>(project?.kind ?? defaultKind);
+  const kindOptions =
+    project && !allowedKinds.includes(project.kind)
+      ? [...allowedKinds, project.kind]
+      : allowedKinds;
+  const codeRequired = kind !== "LEAD";
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,7 +56,7 @@ export function ProjectForm({
     const fd = new FormData(e.currentTarget);
     const input = {
       kind,
-      projectCode: String(fd.get("projectCode")),
+      projectCode: String(fd.get("projectCode") ?? "").trim(),
       pipelineCode: (fd.get("pipelineCode") as string) || null,
       name: String(fd.get("name")),
       factoryIds,
@@ -75,23 +87,35 @@ export function ProjectForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="kind">Tür</Label>
-          <Select
-            id="kind"
-            value={kind}
-            onChange={(e) => setKind(e.target.value as ProjectDTO["kind"])}
-          >
-            {Object.entries(KIND_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {kindOptions.length > 1 && (
+          <div>
+            <Label htmlFor="kind">Tür</Label>
+            <Select
+              id="kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as ProjectDTO["kind"])}
+            >
+              {kindOptions.map((v) => (
+                <option key={v} value={v}>
+                  {KIND_LABELS[v] ?? v}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div>
           <Label htmlFor="projectCode">Proje Kodu</Label>
-          <Input id="projectCode" name="projectCode" defaultValue={project?.projectCode} placeholder="Serbest kod (örn. PRJ-101, Demand, D-12)" required />
+          <Input
+            id="projectCode"
+            name="projectCode"
+            defaultValue={project?.projectCode}
+            placeholder={
+              codeRequired
+                ? "Serbest kod (örn. PRJ-101, Demand, D-12)"
+                : "Opsiyonel — boş bırakılırsa otomatik atanır"
+            }
+            required={codeRequired}
+          />
         </div>
         <div>
           <Label htmlFor="pipelineCode">Pipeline Kodu (PTM)</Label>
