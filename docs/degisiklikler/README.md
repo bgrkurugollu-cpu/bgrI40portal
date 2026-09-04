@@ -9,6 +9,7 @@ Yeni kayıt eklemek için: `./yeni-kayit.sh "kisa-baslik"` (bkz.
 
 | Tarih | Commit | Özet | Şema | Detay |
 |---|---|---|---|---|
+| 2026-09-04 | `763605c` | Otomatik gelir formülü düzeltildi: gider + giderin %5'i (önceden yalnızca %5 yazılıyordu) | — | [↗](2026-09-04-otomatik-gelir-formul-duzeltme.md) |
 | 2026-09-04 | `11551e7` | PT Kodları modülü tamamen kaldırıldı (üretimde veri yoktu); Bütçe & Finans'taki Ciro Dağılımı'nda PT kırılımı yerine Proje/Lead-CR kırılımı gösteriliyor; Ana Sayfa'ya Toplam Hedef Bütçe'nin yanına Ciro info kartı eklendi (Bütçe & Finans'takiyle aynı hesap) | ✅ | [↗](2026-09-04-pt-kodlari-kaldirma-lead-cr-akisi-ciro-anasayfa.md) |
 | 2026-09-04 | `f617a85` | Lead/CR ekranında yeni kayıt için CR türü ve Proje seçeneği kaldırıldı (yalnızca Lead açılabiliyor); Lead kayıtlarında Proje Kodu artık zorunlu değil (boş bırakılırsa otomatik kod atanır), Projeler tarafında zorunluluk aynı kalıyor | — | [↗](2026-09-04-lead-cr-cr-kaldirma-proje-kodu-opsiyonel.md) |
 | 2026-09-04 | `0f57121` | Fatura Ekle formuna 'Otomatik %5 Gelir Ekle' butonu eklendi (Gider seçiliyken): giderin %5'i tutarında, aynı tarihli, EBA No'su sabit '1' olan bir gelir faturasını otomatik oluşturur | — | [↗](2026-09-04-otomatik-yuzde5-gelir-faturasi.md) |
