@@ -212,11 +212,12 @@ export async function addInvoice(input: {
 }
 
 // Al-sat mantığıyla önden gelir faturası kesilmeyen giderler için: gideri
-// oluştururken aynı anda, giderin %5'i tutarında, aynı tarihli/aynı aylık,
-// EBA No'su hep sabit "1" olan bir gelir faturası da otomatik yazılır.
-// EBA No sabit tutulur ki bu otomatik gelirler gerçek faturalarla karışmasın.
+// oluştururken aynı anda, giderin %5 fazlası (gider + gider×%5) tutarında,
+// aynı tarihli/aynı aylık, EBA No'su hep sabit "1" olan bir gelir faturası
+// da otomatik yazılır. EBA No sabit tutulur ki bu otomatik gelirler gerçek
+// faturalarla karışmasın.
 const AUTO_INCOME_EBA_NUMBER = "1";
-const AUTO_INCOME_MARKUP = 0.05;
+const AUTO_INCOME_MARKUP = 1.05;
 
 export async function addInvoiceWithAutoIncome(input: {
   projectId: string;
@@ -254,7 +255,7 @@ export async function addInvoiceWithAutoIncome(input: {
     data: {
       projectId: input.projectId,
       type: "INCOME",
-      description: `Otomatik %5 gelir — ${input.description}`,
+      description: `Otomatik gelir (gider + %5) — ${input.description}`,
       amount: autoIncomeAmount,
       currency: input.currency,
       issueDate,

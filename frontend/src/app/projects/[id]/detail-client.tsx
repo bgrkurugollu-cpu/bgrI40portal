@@ -1417,8 +1417,9 @@ function InvoicesTab({
     setEditingInvoice(null);
   }
 
-  // Gider faturasını, önden gelir kesilmeyen "al-sat" işleri için giderin %5'i
-  // tutarında sabit EBA No "1" olan bir gelir faturasıyla birlikte oluşturur.
+  // Gider faturasını, önden gelir kesilmeyen "al-sat" işleri için giderin %5
+  // fazlası (gider + gider×%5) tutarında sabit EBA No "1" olan bir gelir
+  // faturasıyla birlikte oluşturur.
   async function onAddWithAutoIncome() {
     const form = formRef.current;
     if (!form || !form.reportValidity()) return;
@@ -1647,9 +1648,9 @@ function InvoicesTab({
           {!editingInvoice && invoiceType === "EXPENSE" && (
             <div className="rounded-lg border border-dashed p-3 space-y-2">
               <p className="text-xs text-muted-foreground">
-                Bu gider için önden gelir faturası kesmiyorsanız (al-sat), giderin %5&apos;i
-                tutarında, aynı tarihli/aynı aylık, EBA No&apos;su sabit &quot;1&quot; olan bir
-                gelir faturasını otomatik oluşturabilirsiniz.
+                Bu gider için önden gelir faturası kesmiyorsanız (al-sat), giderin %5 fazlası
+                (gider + %5) tutarında, aynı tarihli/aynı aylık, EBA No&apos;su sabit
+                &quot;1&quot; olan bir gelir faturasını otomatik oluşturabilirsiniz.
               </p>
               <Button
                 type="button"
@@ -1658,7 +1659,7 @@ function InvoicesTab({
                 disabled={loading}
                 onClick={onAddWithAutoIncome}
               >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />} Otomatik %5 Gelir Ekle
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />} Otomatik Gelir Ekle (Gider + %5)
               </Button>
             </div>
           )}
