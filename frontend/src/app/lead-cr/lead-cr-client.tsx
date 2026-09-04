@@ -51,8 +51,8 @@ function itemValue(p: ProjectDTO, key: string): SortValue {
       return p.name;
     case "factory":
       return p.factoryNames.join(", ");
-    case "budget":
-      return p.targetBudget;
+    case "ciro":
+      return p.ciro ?? 0;
     case "timeline":
       return p.startDate;
     case "status":
@@ -164,7 +164,7 @@ export function LeadCrClient({
               <SortTH label="Pipeline Kodu (PTM)" col="pipelineCode" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="İsim" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="Fabrika" col="factory" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortTH label="Hedef Bütçe" col="budget" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTH label="Ciro" col="ciro" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="Zaman Çizelgesi" col="timeline" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortTH label="Durum" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <TH></TH>
@@ -201,7 +201,7 @@ export function LeadCrClient({
                   </Link>
                 </TD>
                 <TD className="text-muted-foreground">{p.factoryNames.join(", ")}</TD>
-                <TD className="font-medium">{formatMoney(p.targetBudget, "TRY", 2)}</TD>
+                <TD className="font-medium">{formatMoney(p.ciro ?? 0, "TRY", 2)}</TD>
                 <TD className="text-muted-foreground">
                   {formatDate(p.startDate)} → {formatDate(p.endDate)}
                 </TD>

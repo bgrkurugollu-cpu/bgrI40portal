@@ -25,6 +25,9 @@ export type ProjectDTO = {
   factoryNames: string[];
   probability: number;
   targetBudget: number;
+  // Yalnızca Lead/CR listesinde doldurulur — o kaydın gerçekleşen tüm gelirlerinin
+  // toplamı (Gelir + İç Kaynak Geliri, TL karşılığı). Proje listesinde kullanılmaz.
+  ciro?: number;
   startDate: string | null;
   endDate: string | null;
   riskLevel: string;

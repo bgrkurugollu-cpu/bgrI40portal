@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { ProjectDTO } from "@/lib/types";
 import { requirePageView } from "@/lib/permission-guard";
+import { getRates, toTRY } from "@/lib/rates";
+import type { CurrencyCode } from "@/lib/utils";
 import { LeadCrClient } from "./lead-cr-client";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +12,14 @@ export const dynamic = "force-dynamic";
 // ile birebir paylaşır; yalnızca ayrı bir menüde, risk/öncelik olmadan listelenir.
 export default async function LeadCrPage() {
   await requirePageView("leadcr");
-  const [projects, factories] = await Promise.all([
+  const [projects, factories, rates] = await Promise.all([
     prisma.project.findMany({
       where: { kind: { in: ["LEAD", "CR"] } },
-      include: { factories: true },
+      include: { factories: true, financials: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.factory.findMany({ orderBy: { name: "asc" } }),
+    getRates(),
   ]);
 
   const dtos: ProjectDTO[] = projects.map((p) => ({
@@ -29,6 +32,14 @@ export default async function LeadCrPage() {
     factoryNames: p.factories.map((f) => f.name),
     probability: p.probability,
     targetBudget: Number(p.targetBudget),
+    // Ciro: Gelir + İç Kaynak Geliri (Bütçe & Finans/Proje detayıyla aynı formül), TL karşılığı.
+    ciro: p.financials.reduce(
+      (s, f) =>
+        s +
+        toTRY(Number(f.income), f.currency as CurrencyCode, rates) +
+        toTRY(Number(f.internalIncome), f.currency as CurrencyCode, rates),
+      0
+    ),
     startDate: p.startDate?.toISOString().slice(0, 10) ?? null,
     endDate: p.endDate?.toISOString().slice(0, 10) ?? null,
     riskLevel: p.riskLevel,
