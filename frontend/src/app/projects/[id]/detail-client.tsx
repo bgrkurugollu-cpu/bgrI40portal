@@ -236,7 +236,15 @@ export function ProjectDetailClient(props: {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
+        {project.kind === "PROJECT" ? (
+          <StatCard label="Hedef Bütçe" value={formatMoney(project.targetBudget)} />
+        ) : (
+          <StatCard
+            label="Ciro"
+            value={formatMoney(ciro)}
+            sub="Tüm gelirlerin toplamı (Gelir + İç Kaynak Geliri)"
+          />
+        )}
         <StatCard label="Bütçe Kırılımı (TL karşılığı)" value={formatMoney(budgetTotal)} />
         <StatCard
           label="Karlılık"
