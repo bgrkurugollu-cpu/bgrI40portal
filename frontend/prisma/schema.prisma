@@ -270,57 +270,6 @@ model PaymentPlanItem {
   @@index([dueDate])
 }
 
-// ── Modül 4: PT Kodları ─────────────────────────────────
-// Projelerden ayrı, kendi fatura ve aylık finans takibini yapan PT kayıtları.
-// Kurgu: PT karşılığında fatura alınır; giderin %5 fazlası gelir olarak yazılır (Proje modülüyle aynı mantık).
-
-model Pt {
-  id           String        @id @default(cuid())
-  ptCode       String        @unique
-  pipelineCode String? // Pipeline Kodu (PTM)
-  name         String
-  description String?
-  status      ProjectStatus @default(ACTIVE)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  invoices   PtInvoice[]
-  financials PtMonthlyFinancial[]
-}
-
-// PT faturaları — proje Invoice modeliyle aynı kurgu (eBA No zorunlu, kur farkı takibi)
-model PtInvoice {
-  id          String        @id @default(cuid())
-  ptId        String
-  pt          Pt            @relation(fields: [ptId], references: [id], onDelete: Cascade)
-  description String
-  amount      Decimal       @default(0) @db.Decimal(14, 2)
-  currency    Currency      @default(TRY)
-  issueDate   DateTime
-  status      InvoiceStatus @default(PLANNED)
-  ebaNumber   String?
-  poNumber    String?
-  hasExchangeRateDiff       Boolean @default(false) // Kur farkı oluştu mu
-  exchangeRateDiffEbaNumber String? // Kur farkı eBA No
-
-  @@index([issueDate])
-}
-
-// PT aylık gelir/gider — gelir en az giderin %5 fazlası olmalıdır (Proje MonthlyFinancial ile aynı kural)
-model PtMonthlyFinancial {
-  id       String   @id @default(cuid())
-  ptId     String
-  pt       Pt       @relation(fields: [ptId], references: [id], onDelete: Cascade)
-  year     Int
-  month    Int
-  income   Decimal  @default(0) @db.Decimal(14, 2)
-  expense  Decimal  @default(0) @db.Decimal(14, 2)
-  currency Currency @default(TRY)
-
-  @@unique([ptId, year, month])
-  @@index([year])
-}
-
 // ── Modül 3: Lisans ve Key Yönetimi ────────────────────
 
 enum PaymentPeriod {

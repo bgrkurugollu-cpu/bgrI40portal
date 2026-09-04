@@ -21,7 +21,7 @@
 > (bkz. `docs/04-CALISMA-AKISI.md` §7 — `yeni-kayit.sh` bunu otomatikleştirir).
 
 ## 1. Proje Genel Bakışı ve Hedef
-Bu doküman; Proje Yönetimi (Gantt/Proje Planı dahil), PT Kodları, Bütçe Takibi (Ödeme Planı, Dijital CAPEX Bütçesi dahil), Lisans Yönetimi ve kullanıcı bazlı sayfa erişim yetkilendirmesi modüllerinden oluşan entegre bir iç yönetim uygulamasının teknik mimarisini ve otonom geliştirme ajanı (Agent) için uygulama talimatlarını içerir. Uygulama, Docker üzerinde çalışacak, verilerini PostgreSQL'de tutacak ve modern, ferah, yüksek etkileşimli bir ön yüze sahip olacaktır.
+Bu doküman; Proje Yönetimi (Gantt/Proje Planı dahil), Lead/CR Yönetimi, Bütçe Takibi (Ödeme Planı, Dijital CAPEX Bütçesi dahil), Lisans Yönetimi ve kullanıcı bazlı sayfa erişim yetkilendirmesi modüllerinden oluşan entegre bir iç yönetim uygulamasının teknik mimarisini ve otonom geliştirme ajanı (Agent) için uygulama talimatlarını içerir. Uygulama, Docker üzerinde çalışacak, verilerini PostgreSQL'de tutacak ve modern, ferah, yüksek etkileşimli bir ön yüze sahip olacaktır.
 
 ---
 

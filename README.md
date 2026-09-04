@@ -5,8 +5,8 @@ DBD Ekibi PO Yönetimi için entegre iç yönetim uygulaması.
 ## Modüller
 1. **Proje ve Kaynak Yönetimi** — proje kayıtları (proje kodu + Pipeline Kodu/PTM), tarihsel değişiklik logu, risk/öncelik, ekip kapasite matrisi (kişi × ay), plan/gerçekleşen karşılaştırması (kullanıcı kendi eforunu "gerçekleşti" olarak işaretleyebilir)
 2. **Proje Planı (Gantt)** — proje bazında görev/milestone/alt görev kırılımı, yıllık ISO hafta takvimi üzerinde renkli Gantt çubukları, kişi ataması ve haftalık gün girişi; girilen günler otomatik olarak Kaynak Planı'na (aylık plan) yansır
-3. **PT Kodları** — projelerden ayrı, kendi fatura ve aylık finans takibini (gider + %5 gelir kuralı) yapan PT kayıtları; Finans ve Dashboard toplamlarına dahildir
-4. **Bütçe ve Finansal Yönetim** — kırılımlı bütçe kalemleri, aylık gelir/gider/iç kaynak geliri gridi, faturalama takvimi (eBA No zorunlu, kur farkı eBA No takibi), Ödeme Planı ve nakit akışı raporu (Proje/PT kırılımlı)
+3. **Lead / CR Yönetimi** — proje/demand kapsamı dışındaki işler (Lead), Proje modeliyle aynı alt yapıyı (plan, ödeme, efor, bütçe) paylaşır; Finans ve Dashboard toplamlarına dahildir
+4. **Bütçe ve Finansal Yönetim** — kırılımlı bütçe kalemleri, aylık gelir/gider/iç kaynak geliri gridi, faturalama takvimi (eBA No zorunlu, kur farkı eBA No takibi), Ödeme Planı ve nakit akışı raporu (Proje/Lead-CR kırılımlı)
 5. **Dijital CAPEX Bütçesi** — yıllık onaylı CAPEX bütçesinin ana kalem → alt proje kırılımı, kalan/aşım takibi, dashboard KPI ve grafikleri
 6. **Lisans ve Key Yönetimi** — uygulama/lisans envanteri, yatırım ve abonelik maliyetleri, yenileme takibi
 7. **Kullanıcı Yönetimi ve Sayfa Bazlı Erişim Yetkileri** — admin panelinden her kullanıcı için sayfa bazında görüntüleme/düzenleme yetkisi tanımlanabilir (`src/lib/permissions.ts`, `src/lib/permission-guard.ts`); varsayılan davranış geriye dönük uyumludur (kayıt yoksa eski açık/kapalı kurallar geçerli)

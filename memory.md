@@ -7,7 +7,7 @@ Bu doküman, projenin detaylı mimari analizini ve projedeki **tüm arka uç, ve
 Proje; Next.js (App Router), Prisma ORM, PostgreSQL ve Tailwind CSS kullanılarak geliştirilmiş monolitik bir iç yönetim uygulamasıdır. Proje şu modüllerden oluşur:
 1. **Proje ve Kaynak Yönetimi:** Proje oluşturma (proje kodu + Pipeline Kodu/PTM), tarihsel değişiklik logları, takım üyelerinin adam-gün efor atamaları (kişi × ay matrisi, "gerçekleşti" işaretleme).
 2. **Proje Planı (Gantt):** Görev/milestone/alt görev kırılımı, ISO hafta takvimi üzerinde renkli bar, kişi ataması, haftalık gün girişi → Kaynak Planı'na otomatik yansıma.
-3. **PT Kodları:** Projelerden ayrı, kendi fatura ve aylık finans (gider + %5 gelir kuralı) takibini yapan kayıtlar. Finans/Dashboard toplamlarına dahil edilir.
+3. **Lead / CR Yönetimi:** Proje/demand kapsamı dışındaki işler (Lead); Proje modeliyle aynı alt yapıyı (plan, ödeme, efor, bütçe) paylaşır, ayrı bir menüde listelenir. Finans/Dashboard toplamlarına dahil edilir. (Not: "PT Kodları" ve "CR" fonksiyonları 2026-09-04'te tamamen kaldırıldı.)
 4. **Bütçe ve Finansal Yönetim:** Projelere ait gelir, gider, bütçe kalemleri, fatura (eBA No zorunlu + kur farkı takibi) ve Ödeme Planı yönetimi. (Gelirler giderlerin %5 fazlası olarak otomatik hesaplanır).
 5. **Dijital CAPEX Bütçesi:** Yıllık ana kalem → alt proje kırılımlı CAPEX takibi, kalan/aşım hesapları.
 6. **Lisans ve Key Yönetimi:** Kullanılan uygulama lisansları, maliyetleri, yenileme tarihleri ve fabrikalara göre atamaları.
@@ -55,7 +55,7 @@ Bu dosyadaki tüm işlemler sadece **ADMIN** yetkisine sahip kullanıcılar tara
   - `requirePageView(page)`: Server component'lerde çağrılır; admin her zaman geçer, izinsiz kullanıcı `/account`'a yönlendirilir.
   - `requirePageEdit(page)`: Server action'larda çağrılır; admin her zaman geçer, izinsiz kullanıcıda hata fırlatır.
   - `getVisiblePageKeys(userId, role)`: Sidebar'da hangi menü öğelerinin gösterileceğini belirler (admin için `null` = kısıtlama yok).
-- **Sayfa bazlı `defaultEdit` politikası** (mevcut davranışı bozmamak için önemli): `resources` ve `capex` **false** (eskiden hardcoded admin-only'ydi, öyle kalır); `projects`, `pt`, `licenses` **true** (eskiden herkese açıktı, öyle kalır); `dashboard`/`finance` düzenlenemez sayfalar (`hasEdit:false`).
+- **Sayfa bazlı `defaultEdit` politikası** (mevcut davranışı bozmamak için önemli): `resources` ve `capex` **false** (eskiden hardcoded admin-only'ydi, öyle kalır); `projects`, `leadcr`, `licenses` **true** (eskiden herkese açıktı, öyle kalır); `dashboard`/`finance` düzenlenemez sayfalar (`hasEdit:false`).
 - **`UserPagePermission` modeli** (Prisma): `{userId, page, canView, canEdit}`, `@@unique([userId, page])`.
 - **Akış**: `src/app/layout.tsx` (server) → `getVisiblePageKeys()` çağırıp `AppShell` → `Sidebar`'a dizi olarak geçirir (Set client'a serialize edilemediği için `Array.from` ile diziye çevrilir). `Sidebar.tsx`'teki `nav` dizisindeki her öğeye artık bir `page` anahtarı eklendi, `visiblePages` ile filtrelenir.
 - Admin UI: `src/app/admin/admin-client.tsx` → `UsersTab` içindeki `PermissionsDialog` bileşeni, her kullanıcı satırındaki kilit ikonuyla açılır; `APP_PAGES` üzerinden checkbox matrisi render eder (admin rolündeki kullanıcılar için buton devre dışı — zaten tam yetkili).
@@ -70,13 +70,9 @@ Tüm fonksiyonlar `requirePageEdit("projects")` ile korunur (bu verilerin düzen
 - **`deleteInvoice(id)`**: Faturayı siler.
 - **`addPaymentPlanItem` / `updatePaymentPlanItem` / `updatePaymentPlanStatus` / `deletePaymentPlanItem`**: Ödeme Planı (Invoice'tan ayrı, `PaymentPlanItem` modeli) CRUD'u — proje bazında ayrı ödeme takvimi.
 
-`src/app/finance/page.tsx`: Proje verilerine ek olarak `PtMonthlyFinancial`/`PtInvoice` de çekilip aynı DTO şekline (`source: "PT"` etiketiyle) map'lenip birleştirilir — Finans sayfasındaki tüm KPI/grafik/tablo/faturalama takvimi otomatik olarak PT'yi de kapsar. Ciro Dağılımı pasta grafiğinde dış halka Proje/PT kırılımını gösterir.
+`src/app/finance/page.tsx`: `MonthlyFinancial`/`Invoice` sorguları `kind` filtresi kullanmaz — Proje ve Lead/CR'ın tamamı aynı toplamlara (Gelir/Gider/Ciro/Karlılık) girer; her satıra `project.kind` DTO'ya eklenir. Ciro Dağılımı pasta grafiğinde dış halka Proje/Lead-CR kırılımını gösterir (`kind === "PROJECT"` mi değil mi).
 
-### `src/app/actions/pt.ts`
-Projelerden bağımsız PT kayıtları için CRUD — `requirePageEdit("pt")` ile korunur.
-- **`createPt` / `updatePt` / `deletePt`**: PT kaydı (kod, Pipeline Kodu/PTM, isim, durum) yönetimi.
-- **`addPtInvoice` / `updatePtInvoice` / `updatePtInvoiceStatus` / `deletePtInvoice`**: Proje `Invoice` modeliyle birebir aynı kurgu (eBA No zorunlu, kur farkı takibi) — ayrı `PtInvoice` tablosunda.
-- **`upsertPtMonthlyFinancial(input)`**: Proje `MonthlyFinancial` ile aynı %5 gelir kuralı, ayrı `PtMonthlyFinancial` tablosunda (iç kaynak geliri kavramı yok).
+(2026-09-04: Projelerden ayrı, kendi fatura/aylık finans takibi yapan "PT Kodları" modülü — `Pt`/`PtInvoice`/`PtMonthlyFinancial` modelleri, `src/app/actions/pt.ts`, `src/app/pt/` route'ları — üretim veritabanında hiç veri olmadığı doğrulanıp tamamen kaldırıldı; PT'nin kapsadığı finansal akış artık Lead/CR üzerinden yürütülüyor.)
 
 ### `src/app/actions/tasks.ts` (Proje Planı / Gantt)
 `requirePageEdit("projects")` ile korunur. `ProjectTask` (görev/milestone, kendine referanslı ağaç), `TaskAssignee` (görev↔kişi), `TaskWeekAllocation` (kişi başına ISO hafta/gün) modellerini yönetir.

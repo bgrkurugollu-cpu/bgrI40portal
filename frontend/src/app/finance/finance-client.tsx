@@ -61,20 +61,18 @@ function renderOuterLabel(props: {
   );
 }
 
-type FinRow = FinancialDTO & { projectName: string; source?: "PT" };
-type InvRow = InvoiceDTO & { source?: "PT" };
+type FinRow = FinancialDTO & { projectName: string };
+type InvRow = InvoiceDTO;
 
 export function FinanceClient({
   financials,
   invoices,
   projects,
-  pts,
   rates,
 }: {
   financials: FinRow[];
   invoices: InvRow[];
   projects: { id: string; name: string }[];
-  pts: { id: string; name: string }[];
   rates: RatesDTO;
 }) {
   const years = useMemo(
@@ -117,18 +115,18 @@ export function FinanceClient({
   ];
   const pieTotal = pieData.reduce((s, d) => s + d.value, 0); // = Ciro
 
-  // Dış halka: aynı cironun Proje / PT kırılımı.
+  // Dış halka: aynı cironun Proje / Lead-CR kırılımı.
   const sourceTotals = filtered.reduce(
     (acc, f) => {
-      const key = f.source === "PT" ? "pt" : "project";
+      const key = f.kind === "PROJECT" ? "project" : "leadcr";
       acc[key] += f.incomeTRY + f.internalIncomeTRY;
       return acc;
     },
-    { project: 0, pt: 0 }
+    { project: 0, leadcr: 0 }
   );
   const sourcePieData = [
     { name: "Projeler", value: Math.round(sourceTotals.project), color: "var(--primary)" },
-    { name: "PT", value: Math.round(sourceTotals.pt), color: "var(--warning)" },
+    { name: "Lead / CR", value: Math.round(sourceTotals.leadcr), color: "var(--warning)" },
   ].filter((d) => d.value > 0);
 
   const chartData = useMemo(
@@ -151,10 +149,10 @@ export function FinanceClient({
   );
 
   const pivot = useMemo(() => {
-    const byProject = new Map<string, { code?: string; name: string; source?: "PT"; months: FinRow[] }>();
+    const byProject = new Map<string, { code?: string; name: string; months: FinRow[] }>();
     filtered.forEach((f) => {
       if (!byProject.has(f.projectId))
-        byProject.set(f.projectId, { code: f.projectCode, name: f.projectName, source: f.source, months: [] });
+        byProject.set(f.projectId, { code: f.projectCode, name: f.projectName, months: [] });
       byProject.get(f.projectId)!.months.push(f);
     });
     return byProject;
@@ -185,7 +183,7 @@ export function FinanceClient({
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
           >
-            <option value="all">Tüm Projeler + PT</option>
+            <option value="all">Tüm Projeler</option>
             <optgroup label="Projeler">
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -193,15 +191,6 @@ export function FinanceClient({
                 </option>
               ))}
             </optgroup>
-            {pts.length > 0 && (
-              <optgroup label="PT Kodları">
-                {pts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
           </Select>
           <Button variant="outline" size="sm" onClick={() => setYear((y) => y - 1)}>
             ← {year - 1}
@@ -289,7 +278,7 @@ export function FinanceClient({
             <CardTitle>Ciro Dağılımı (Pay)</CardTitle>
             <CardDescription>
               İç halka: Gelir (min. gider×1,05) ve iç kaynak gelirinin payı · Dış halka: aynı
-              cironun Proje / PT kırılımı (TL)
+              cironun Proje / Lead-CR kırılımı (TL)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -392,13 +381,13 @@ export function FinanceClient({
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-muted-foreground">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--warning)" }} />
-                  PT
+                  Lead / CR
                 </span>
                 <span className="font-medium tabular-nums">
-                  {formatMoney(sourceTotals.pt)}
+                  {formatMoney(sourceTotals.leadcr)}
                   {pieTotal > 0 && (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      (%{((sourceTotals.pt / pieTotal) * 100).toFixed(0)})
+                      (%{((sourceTotals.leadcr / pieTotal) * 100).toFixed(0)})
                     </span>
                   )}
                 </span>
@@ -432,7 +421,7 @@ export function FinanceClient({
               </TR>
             </THead>
             <TBody>
-              {Array.from(pivot.entries()).flatMap(([pid, { code, name, source, months }]) => {
+              {Array.from(pivot.entries()).flatMap(([pid, { code, name, months }]) => {
                 const rowFor = (
                   key: "incomeTRY" | "expenseTRY" | "internalIncomeTRY",
                   label: string
@@ -449,12 +438,11 @@ export function FinanceClient({
                           </TD>
                           <TD rowSpan={3} className="align-top font-medium w-[140px] max-w-[160px] truncate" title={name}>
                             <Link
-                              href={source === "PT" ? `/pt/${pid}` : `/projects/${pid}`}
+                              href={`/projects/${pid}`}
                               className="text-primary hover:underline"
                             >
                               {name}
                             </Link>
-                            {source === "PT" && <Badge tone="info" className="ml-1">PT</Badge>}
                           </TD>
                         </>
                       )}
@@ -518,12 +506,11 @@ export function FinanceClient({
                   </TD>
                   <TD>
                     <Link
-                      href={inv.source === "PT" ? `/pt/${inv.projectId}` : `/projects/${inv.projectId}`}
+                      href={`/projects/${inv.projectId}`}
                       className="text-primary hover:underline"
                     >
                       {inv.projectName}
                     </Link>
-                    {inv.source === "PT" && <Badge tone="info" className="ml-1">PT</Badge>}
                   </TD>
                   <TD className="text-muted-foreground">{inv.description}</TD>
                   <TD>{inv.ebaNumber || "—"}</TD>
@@ -585,7 +572,7 @@ export function FinanceClient({
               </TR>
             </THead>
             <TBody>
-              {Array.from(pivot.entries()).map(([pid, { code, name, source, months }]) => {
+              {Array.from(pivot.entries()).map(([pid, { code, name, months }]) => {
                 const income = months.reduce((s, m) => s + m.incomeTRY, 0);
                 const expense = months.reduce((s, m) => s + m.expenseTRY, 0);
                 const internal = months.reduce((s, m) => s + m.internalIncomeTRY, 0);
@@ -597,12 +584,11 @@ export function FinanceClient({
                     <TD className="font-mono text-xs font-bold text-muted-foreground">{code}</TD>
                     <TD>
                       <Link
-                        href={source === "PT" ? `/pt/${pid}` : `/projects/${pid}`}
+                        href={`/projects/${pid}`}
                         className="text-primary hover:underline"
                       >
                         {name}
                       </Link>
-                      {source === "PT" && <Badge tone="info" className="ml-1">PT</Badge>}
                     </TD>
                     <TD className="text-right">{formatMoney(income, "TRY", 2)}</TD>
                     <TD className="text-right">{formatMoney(expense, "TRY", 2)}</TD>

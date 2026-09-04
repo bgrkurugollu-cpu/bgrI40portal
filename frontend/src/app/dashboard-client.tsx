@@ -40,6 +40,7 @@ type Stats = {
   activeProjects: number;
   totalProjects: number;
   totalBudget: number;
+  totalCiro: number;
   teamSize: number;
   licenseCount: number;
   licenseInvestment: number;
@@ -80,7 +81,6 @@ export function DashboardClient({
     status: string;
     ebaNumber: string | null;
     poNumber: string | null;
-    source?: "PT";
   }[];
 }) {
   const finData = monthly.map((m) => ({
@@ -158,13 +158,14 @@ export function DashboardClient({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <Kpi
           icon={FolderKanban}
           label="Aktif Proje"
           value={`${stats.activeProjects} / ${stats.totalProjects}`}
         />
         <Kpi icon={Wallet} label="Toplam Hedef Bütçe" value={formatMoney(stats.totalBudget)} />
+        <Kpi icon={TrendingUp} label="Ciro (TL)" value={formatMoney(stats.totalCiro)} />
         <Kpi icon={Users} label="Ekip" value={`${stats.teamSize} kişi`} />
         <Kpi
           icon={KeyRound}
@@ -321,12 +322,11 @@ export function DashboardClient({
                       </TD>
                       <TD>
                         <Link
-                          href={inv.source === "PT" ? `/pt/${inv.projectId}` : `/projects/${inv.projectId}`}
+                          href={`/projects/${inv.projectId}`}
                           className="text-primary hover:underline"
                         >
                           {inv.projectName}
                         </Link>
-                        {inv.source === "PT" && <Badge tone="info" className="ml-1">PT</Badge>}
                         <div className="text-xs text-muted-foreground">{inv.description}</div>
                       </TD>
                       <TD>{inv.ebaNumber || "—"}</TD>

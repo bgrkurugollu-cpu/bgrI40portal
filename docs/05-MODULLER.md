@@ -13,7 +13,6 @@ Hangi ekran ne yapar, hangi dosyada yaşar.
 | Bütçe & Finans | `/finance` | `finance` |
 | CAPEX Bütçesi | `/capex` | `capex` |
 | Lisanslar | `/licenses` | `licenses` |
-| PT Kodları | `/pt` | `pt` |
 
 Yönetim Paneli (`/admin`) ve Hesabım (`/account`) alt menüdedir; `/admin`
 middleware ile yalnızca `role === "ADMIN"`'e açıktır.
@@ -69,11 +68,6 @@ Yıllık onaylı bütçe → ana kalem → alt kalem kırılımı. Alt kalemde *
 destekli proje seçici** (`components/ui/combobox.tsx`) vardır; proje bağlanınca
 tutar TCMB kuruyla TL'ye çevrilip projenin Hedef Bütçesi'ne yazılır.
 Düzenleme admine kilitlidir.
-
-## PT Kodları (`app/pt/`)
-
-Projelerden ayrı kayıt türü; kendi faturası ve aylık finansı vardır.
-Burada hâlâ **"gider + %5 gelir" kuralı** geçerlidir (`INCOME_MARKUP = 1.05`).
 
 ## Lisanslar (`app/licenses/`)
 

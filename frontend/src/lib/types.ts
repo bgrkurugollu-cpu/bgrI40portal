@@ -76,6 +76,7 @@ export type FinancialDTO = {
   projectId: string;
   projectCode?: string;
   projectName?: string;
+  kind?: "PROJECT" | "LEAD" | "CR";
   year: number;
   month: number;
   income: number;
@@ -126,44 +127,6 @@ export type PaymentMilestoneDTO = {
   order: number;
   label: string;
   percentage: number;
-};
-
-export type PtDTO = {
-  id: string;
-  ptCode: string;
-  pipelineCode: string | null;
-  name: string;
-  description: string | null;
-  status: string;
-};
-
-export type PtInvoiceDTO = {
-  id: string;
-  ptId: string;
-  ptCode?: string;
-  ptName?: string;
-  description: string;
-  amount: number;
-  currency: CurrencyCode;
-  amountTRY: number;
-  issueDate: string;
-  status: string;
-  ebaNumber: string | null;
-  poNumber: string | null;
-  hasExchangeRateDiff: boolean;
-  exchangeRateDiffEbaNumber: string | null;
-};
-
-export type PtMonthlyFinancialDTO = {
-  id: string;
-  ptId: string;
-  year: number;
-  month: number;
-  income: number;
-  expense: number;
-  currency: CurrencyCode;
-  incomeTRY: number;
-  expenseTRY: number;
 };
 
 export type LogDTO = {

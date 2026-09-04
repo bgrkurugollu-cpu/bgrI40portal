@@ -33,7 +33,6 @@ i40portal/
         │   │   ├── finance.ts      #   bütçe kalemi, fatura, aylık finans, ödeme milestone
         │   │   ├── tasks.ts        #   Gantt görevleri, haftalık efor dağılımı
         │   │   ├── capex.ts        #   CAPEX bütçesi
-        │   │   ├── pt.ts           #   PT kodları
         │   │   ├── licenses.ts / admin.ts / account.ts / bulk-import.ts
         │   ├── projects/           # Projeler listesi + [id] detay
         │   │   ├── project-form.tsx        # Proje ekle/düzenle formu (Lead/CR ile ortak)
@@ -45,7 +44,7 @@ i40portal/
         │   ├── resources/          # Kaynak Planı (kişi × ay efor matrisi)
         │   ├── finance/            # Şirket geneli finans
         │   ├── capex/              # Dijital CAPEX Bütçesi
-        │   ├── licenses/ pt/ admin/ account/ login/
+        │   ├── licenses/ admin/ account/ login/
         ├── components/
         │   ├── AppShell.tsx, Sidebar.tsx   # Menü (yeni sayfa eklerken burayı güncelle)
         │   └── ui/                         # Ortak bileşenler
