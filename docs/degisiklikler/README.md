@@ -9,6 +9,7 @@ Yeni kayıt eklemek için: `./yeni-kayit.sh "kisa-baslik"` (bkz.
 
 | Tarih | Commit | Özet | Şema | Detay |
 |---|---|---|---|---|
+| 2026-09-04 | `9715f0c` | Lead detay sayfasında Hedef Bütçe kartı yerine Ciro (tüm gelirlerin toplamı) kartı gösteriliyor | — | [↗](2026-09-04-lead-detay-ciro-karti.md) |
 | 2026-09-04 | `763605c` | Otomatik gelir formülü düzeltildi: gider + giderin %5'i (önceden yalnızca %5 yazılıyordu) | — | [↗](2026-09-04-otomatik-gelir-formul-duzeltme.md) |
 | 2026-09-04 | `11551e7` | PT Kodları modülü tamamen kaldırıldı (üretimde veri yoktu); Bütçe & Finans'taki Ciro Dağılımı'nda PT kırılımı yerine Proje/Lead-CR kırılımı gösteriliyor; Ana Sayfa'ya Toplam Hedef Bütçe'nin yanına Ciro info kartı eklendi (Bütçe & Finans'takiyle aynı hesap) | ✅ | [↗](2026-09-04-pt-kodlari-kaldirma-lead-cr-akisi-ciro-anasayfa.md) |
 | 2026-09-04 | `f617a85` | Lead/CR ekranında yeni kayıt için CR türü ve Proje seçeneği kaldırıldı (yalnızca Lead açılabiliyor); Lead kayıtlarında Proje Kodu artık zorunlu değil (boş bırakılırsa otomatik kod atanır), Projeler tarafında zorunluluk aynı kalıyor | — | [↗](2026-09-04-lead-cr-cr-kaldirma-proje-kodu-opsiyonel.md) |
